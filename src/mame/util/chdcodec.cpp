@@ -22,6 +22,7 @@
 #include <zstd.h>
 
 #include <bit>
+#include <cstddef>
 #include <cstring>
 #include <new>
 
@@ -838,6 +839,9 @@ void chd_zlib_allocator::install(z_stream &stream)
 //  allocates and frees memory frequently
 //-------------------------------------------------
 
+// header in front of each block; keeps the returned memory suitably aligned
+constexpr std::size_t ZLIB_ALLOC_HEADER = alignof(std::max_align_t);
+
 voidpf chd_zlib_allocator::fast_alloc(voidpf opaque, uInt items, uInt size)
 {
 	auto *codec = reinterpret_cast<chd_zlib_allocator *>(opaque);
@@ -853,12 +857,13 @@ voidpf chd_zlib_allocator::fast_alloc(voidpf opaque, uInt items, uInt size)
 		{
 			// set the low bit of the size so we don't match next time
 			*ptr |= 1;
-			return ptr + 1;
+			return reinterpret_cast<uint8_t *>(ptr) + ZLIB_ALLOC_HEADER;
 		}
 	}
 
-	// alloc a new one and put it into the list
-	auto *ptr = reinterpret_cast<uint32_t *>(new uint8_t[size + sizeof(uint32_t)]);
+	// alloc a new one and put it into the list; the size header is padded
+	// so the block handed to zlib keeps the allocator's natural alignment
+	auto *ptr = reinterpret_cast<uint32_t *>(new uint8_t[size + ZLIB_ALLOC_HEADER]);
 	for (int scan = 0; scan < MAX_ZLIB_ALLOCS; scan++)
 		if (codec->m_allocptr[scan] == nullptr)
 		{
@@ -868,7 +873,7 @@ voidpf chd_zlib_allocator::fast_alloc(voidpf opaque, uInt items, uInt size)
 
 	// set the low bit of the size so we don't match next time
 	*ptr = size | 1;
-	return ptr + 1;
+	return reinterpret_cast<uint8_t *>(ptr) + ZLIB_ALLOC_HEADER;
 }
 
 
@@ -882,7 +887,7 @@ void chd_zlib_allocator::fast_free(voidpf opaque, voidpf address)
 	auto *codec = reinterpret_cast<chd_zlib_allocator *>(opaque);
 
 	// find the hunk
-	uint32_t *ptr = reinterpret_cast<uint32_t *>(address) - 1;
+	uint32_t *ptr = reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(address) - ZLIB_ALLOC_HEADER);
 	for (int scan = 0; scan < MAX_ZLIB_ALLOCS; scan++)
 		if (ptr == codec->m_allocptr[scan])
 		{
@@ -1198,12 +1203,13 @@ void *chd_lzma_allocator::fast_alloc(ISzAllocPtr p, size_t size)
 		{
 			// set the low bit of the size so we don't match next time
 			*ptr |= 1;
-			return ptr + 1;
+			return reinterpret_cast<uint8_t *>(ptr) + ZLIB_ALLOC_HEADER;
 		}
 	}
 
-	// alloc a new one and put it into the list
-	auto *ptr = reinterpret_cast<uint32_t *>(new uint8_t[size + sizeof(uint32_t)]);
+	// alloc a new one and put it into the list; the size header is padded
+	// so the block handed to zlib keeps the allocator's natural alignment
+	auto *ptr = reinterpret_cast<uint32_t *>(new uint8_t[size + ZLIB_ALLOC_HEADER]);
 	for (int scan = 0; scan < MAX_LZMA_ALLOCS; scan++)
 		if (codec->m_allocptr[scan] == nullptr)
 		{
@@ -1213,7 +1219,7 @@ void *chd_lzma_allocator::fast_alloc(ISzAllocPtr p, size_t size)
 
 	// set the low bit of the size so we don't match next time
 	*ptr = size | 1;
-	return ptr + 1;
+	return reinterpret_cast<uint8_t *>(ptr) + ZLIB_ALLOC_HEADER;
 }
 
 
@@ -1230,7 +1236,7 @@ void chd_lzma_allocator::fast_free(ISzAllocPtr p, void *address)
 	auto *const codec = static_cast<chd_lzma_allocator *>(const_cast<ISzAlloc *>(p));
 
 	// find the hunk
-	uint32_t *ptr = reinterpret_cast<uint32_t *>(address) - 1;
+	uint32_t *ptr = reinterpret_cast<uint32_t *>(reinterpret_cast<uint8_t *>(address) - ZLIB_ALLOC_HEADER);
 	for (int scan = 0; scan < MAX_LZMA_ALLOCS; scan++)
 		if (ptr == codec->m_allocptr[scan])
 		{
