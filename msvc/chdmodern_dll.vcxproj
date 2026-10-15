@@ -54,7 +54,7 @@
   </ImportGroup>
   <PropertyGroup>
     <OutDir>$(ChdModernOutDir)dll\</OutDir>
-    <TargetName>chdmodern</TargetName>
+    <TargetName>CHDm</TargetName>
   </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>

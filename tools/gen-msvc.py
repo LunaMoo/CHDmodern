@@ -104,8 +104,10 @@ PROJECTS = {
 		defines=['UTF8PROC_STATIC'],
 		includes=['third_party/utf8proc'],
 	),
+	# Built as CHDm.lib / CHDm.dll, the same name as the CMake build gives it on every platform.
 	'chdmodern': dict(
 		kind='StaticLibrary', lang='cpp', folder=None,
+		target_name='CHDm',
 		sources=files(*[UTIL + f + '.cpp' for f in (
 			'avhuff bitmap cdrom chd chdcodec corefile corestr flac hashing huffman ioprocs md5 '
 			'palette path strformat unicode vecstream').split()],
@@ -119,10 +121,10 @@ PROJECTS = {
 	),
 	# The same library as a DLL exporting only the C API (chdm_*). Output goes
 	# to a dll\ subfolder so its import library doesn't overwrite the static
-	# chdmodern.lib.
+	# CHDm.lib.
 	'chdmodern_dll': dict(
 		kind='DynamicLibrary', lang='cpp', folder=None,
-		target_name='chdmodern', outdir_suffix='dll\\',
+		target_name='CHDm', outdir_suffix='dll\\',
 		sources=None,  # filled in below from 'chdmodern'
 		headers=None,
 		defines=['$(ChdModernDefines)', 'CHDMODERN_SHARED', 'CHDMODERN_BUILDING'],
@@ -229,7 +231,7 @@ def gen_vcxproj(name, p):
 	w('    </ClCompile>')
 	if p.get('merge_deps'):
 		# "Librarian > Link Library Dependencies": fold the bundled
-		# dependencies into chdmodern.lib, so hosts link one library
+		# dependencies into CHDm.lib, so hosts link one library
 		w('    <ProjectReference>')
 		w('      <LinkLibraryDependencies>true</LinkLibraryDependencies>')
 		w('    </ProjectReference>')

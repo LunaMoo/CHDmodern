@@ -35,6 +35,9 @@ Requires CMake ≥ 3.20 and a C++20 compiler (current GCC, Clang, MSVC or
 Xcode; tested here with GCC 13 and Clang). The library is built as C++20 internally; the C API header
 is plain C, so the consuming project can use any language standard.
 
+The library file is named `CHDm` on every platform (`CHDm.a`, `CHDm.so`,
+`CHDm.dylib`, `CHDm.lib`, `CHDm.dll`); the CMake target stays `chdmodern`.
+
 | Option | Default | Meaning |
 |---|---|---|
 | `CHDMODERN_SHARED` | `OFF` | Build a shared library. Only the C API is exported. |
@@ -52,12 +55,12 @@ Two ways, both without installing anything beyond Visual Studio with the
 
 * **Solution** — open `msvc/CHDmodern.sln`. Configurations Debug/Release,
   platforms x86, x64 and ARM64. Output goes to `build/msvc/<Platform>/<Configuration>/`;
-  `chdmodern.lib` already contains the bundled zlib/zstd/LZMA/FLAC/utf8proc,
+  `CHDm.lib` already contains the bundled zlib/zstd/LZMA/FLAC/utf8proc,
   so a host links just that one library.
 * **DLL from the solution** — the `chdmodern_dll` project builds
-  `chdmodern.dll` and its import library `chdmodern.lib` into
+  `CHDm.dll` and its import library `CHDm.lib` into
   `build/msvc/<Platform>/<Configuration>/dll/` (a separate folder, so the
-  import library doesn't overwrite the static `chdmodern.lib`). It exports
+  import library doesn't overwrite the static `CHDm.lib`). It exports
   only the C API; programs using it define `CHDMODERN_SHARED` and link the
   import library — `tests/dlltest.c` (project `chdm-dlltest`) is a minimal
   example. To build just the DLL: right-click `chdmodern_dll` → *Build*, or

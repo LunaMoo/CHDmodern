@@ -1,6 +1,6 @@
 /*
  * dlltest - checks that a program can use CHDmodern purely through the C
- * API, as it would through chdmodern.dll / libchdmodern.so.
+ * API, as it would through CHDm.dll / CHDm.so.
  *
  * usage: chdm-dlltest path/to/tests/data/sample_dvd_zlib.chd
  *
