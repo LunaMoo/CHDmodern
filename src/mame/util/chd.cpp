@@ -3151,6 +3151,28 @@ void chd_file_compressor::compress_begin()
 }
 
 /**
+ * @fn  void chd_file_compressor::compress_abort()
+ *
+ * @brief   -------------------------------------------------
+ *            compress_abort - stop compressing early: wait
+ *            for the reads and compressions already queued.
+ *            Call this before destroying a derived class
+ *            mid-compression, since the queued reads still
+ *            call its read_data.
+ *          -------------------------------------------------.
+ */
+
+void chd_file_compressor::compress_abort()
+{
+	while (!osd_work_queue_wait(m_read_queue, osd_ticks_per_second()))
+	{
+	}
+	while (!osd_work_queue_wait(m_work_queue, osd_ticks_per_second()))
+	{
+	}
+}
+
+/**
  * @fn  std::error_condition chd_file_compressor::compress_continue(double &progress, double &ratio)
  *
  * @brief   -------------------------------------------------

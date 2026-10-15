@@ -12,11 +12,13 @@
 
 #include "cdrom.h"
 #include "chd.h"
+#include "corefile.h"
 #include "ioprocs.h"
 #include "osdcore.h"
 #include "strformat.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cstdio>
 #include <cstring>
 #include <exception>
@@ -323,6 +325,63 @@ int open_io(const chdm_io *io, chd_file *parent, chdm_find_parent_func find_pare
 	}
 }
 
+
+//**************************************************************************
+//  CONVERTING WHOLE IMAGES
+//**************************************************************************
+
+// Feeds a raw image file to the compressor, zero-padding the last hunk.
+// read_data runs on the compressor's read queue, so a failure is only
+// recorded here and reported once compression has finished.
+class image_compressor final : public chd_file_compressor
+{
+public:
+	image_compressor(util::core_file &file, uint64_t length) noexcept : m_file(file), m_length(length) { }
+
+	uint32_t read_data(void *dest, uint64_t offset, uint32_t length) override
+	{
+		uint8_t *const out = static_cast<uint8_t *>(dest);
+		uint32_t done = 0;
+		if (offset < m_length)
+		{
+			uint32_t const want = uint32_t(std::min<uint64_t>(length, m_length - offset));
+			while (done < want)
+			{
+				std::size_t actual = 0;
+				if (m_file.read_some_at(offset + done, out + done, want - done, actual) || actual == 0)
+				{
+					m_read_failed = true;
+					break;
+				}
+				done += uint32_t(actual);
+			}
+		}
+		std::memset(out + done, 0, length - done);
+		return length;
+	}
+
+	bool read_failed() const noexcept { return m_read_failed; }
+
+private:
+	util::core_file &m_file;
+	uint64_t m_length;
+	std::atomic<bool> m_read_failed { false };
+};
+
+bool write_all(util::core_file &file, uint64_t offset, uint8_t const *data, std::size_t length) noexcept
+{
+	while (length > 0)
+	{
+		std::size_t actual = 0;
+		if (file.write_some_at(offset, data, length, actual) || actual == 0)
+			return false;
+		offset += actual;
+		data += actual;
+		length -= actual;
+	}
+	return true;
+}
+
 } // anonymous namespace
 
 
@@ -367,6 +426,7 @@ const char *chdm_error_string(int err)
 	case CHDM_ERR_OUT_OF_MEMORY:         return "out of memory";
 	case CHDM_ERR_INVALID_ARGUMENT:      return "invalid argument";
 	case CHDM_ERR_NOT_SUPPORTED:         return "operation not supported";
+	case CHDM_ERR_CANCELLED:             return "cancelled";
 	default:                             return "unknown error";
 	}
 }
@@ -626,6 +686,136 @@ int chdm_cd_read_subcode(chdm_cd *cd, uint32_t lba, void *buffer)
 	{
 		return current_exception_error();
 	}
+}
+
+
+int chdm_create_dvd(const char *input_path, const char *output_path, uint32_t hunk_bytes,
+		const uint32_t compression[4], chdm_progress_func progress, void *user)
+{
+	CHDM_REQUIRE(input_path && output_path && *input_path && *output_path);
+	if (hunk_bytes == 0)
+		hunk_bytes = CHDM_DVD_HUNK_BYTES_DEFAULT;
+	CHDM_REQUIRE(hunk_bytes % 2048 == 0);
+
+	bool output_created = false;
+	int result = CHDM_OK;
+	try
+	{
+		util::core_file::ptr input;
+		std::error_condition err = util::core_file::open(input_path, OPEN_FLAG_READ, input);
+		if (err)
+			return translate(err);
+		uint64_t length = 0;
+		err = input->length(length);
+		if (err)
+			return translate(err);
+		if (length == 0 || (length % 2048) != 0)
+			return set_error(CHDM_ERR_INVALID_DATA, "input size is not a multiple of 2048 bytes");
+
+		chd_codec_type codecs[4] = { CHD_CODEC_LZMA, CHD_CODEC_ZLIB, CHD_CODEC_HUFFMAN, CHD_CODEC_FLAC };
+		if (compression)
+		{
+			for (int i = 0; i < 4; i++)
+				codecs[i] = compression[i];
+		}
+
+		// declared after input: the compressor's worker threads read from it until it's destroyed
+		image_compressor chd(*input, length);
+		err = chd.create(output_path, length, hunk_bytes, 2048, codecs);
+		output_created = true;
+		if (!err)
+			err = chd.write_metadata(DVD_METADATA_TAG, 0, std::string());
+		if (!err)
+		{
+			chd.compress_begin();
+			double done = 0.0, ratio = 0.0;
+			while ((err = chd.compress_continue(done, ratio)) == chd_file::error::WALKING_PARENT || err == chd_file::error::COMPRESSING)
+			{
+				if (progress && progress(user, done))
+				{
+					// the queued reads still call read_data, so they have to finish first
+					chd.compress_abort();
+					result = set_error(CHDM_ERR_CANCELLED);
+					break;
+				}
+			}
+		}
+		if (result == CHDM_OK)
+		{
+			if (err)
+				result = translate(err);
+			else if (chd.read_failed())
+				result = set_error(CHDM_ERR_IO, "failed to read the input image");
+			else if (progress)
+				progress(user, 1.0);
+		}
+	}
+	catch (...)
+	{
+		result = current_exception_error();
+	}
+
+	if (result != CHDM_OK && output_created)
+		osd_file::remove(output_path);
+	return result;
+}
+
+
+int chdm_extract_raw(const char *input_path, const char *output_path,
+		chdm_progress_func progress, void *user)
+{
+	CHDM_REQUIRE(input_path && output_path && *input_path && *output_path);
+
+	bool output_created = false;
+	int result = CHDM_OK;
+	try
+	{
+		chd_file chd;
+		std::error_condition err = chd.open(input_path);
+		if (err)
+			return translate(err);
+		chdm_kind const kind = detect_kind(chd);
+		if (kind == CHDM_KIND_CDROM || kind == CHDM_KIND_GDROM || kind == CHDM_KIND_AV)
+			return set_error(CHDM_ERR_UNSUPPORTED_FORMAT, "CD-ROM, GD-ROM and A/V CHDs can't be extracted as raw data");
+
+		util::core_file::ptr output;
+		err = util::core_file::open(output_path, OPEN_FLAG_WRITE | OPEN_FLAG_CREATE, output);
+		if (err)
+			return translate(err);
+		output_created = true;
+
+		uint64_t const total = chd.logical_bytes();
+		uint32_t const hunk_bytes = chd.hunk_bytes();
+		std::vector<uint8_t> buffer(hunk_bytes);
+		for (uint32_t hunk = 0; result == CHDM_OK && uint64_t(hunk) * hunk_bytes < total; hunk++)
+		{
+			uint64_t const offset = uint64_t(hunk) * hunk_bytes;
+			err = chd.read_hunk(hunk, buffer.data());
+			if (err)
+			{
+				result = translate(err);
+				break;
+			}
+			std::size_t const length = std::size_t(std::min<uint64_t>(hunk_bytes, total - offset));
+			if (!write_all(*output, offset, buffer.data(), length))
+			{
+				result = set_error(CHDM_ERR_IO, "failed to write the output file");
+				break;
+			}
+			if (progress && progress(user, double(offset + length) / double(total)))
+				result = set_error(CHDM_ERR_CANCELLED);
+		}
+		if (result == CHDM_OK && output->finalize())
+			result = set_error(CHDM_ERR_IO, "failed to write the output file");
+	}
+	catch (...)
+	{
+		result = current_exception_error();
+	}
+
+	if (result != CHDM_OK && output_created)
+		osd_file::remove(output_path);
+	return result;
 }
 
 } // extern "C"

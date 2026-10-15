@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 
 project(CHDmodern
-	VERSION 0.1.0
+	VERSION 0.2.0
 	DESCRIPTION "MAME's CHD (Compressed Hunks of Data) code as a standalone library"
 	LANGUAGES C CXX)
 

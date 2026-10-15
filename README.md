@@ -130,6 +130,11 @@ chdm_close(chd);
   MODE1/2352 raw sectors), using MAME's `cdrom_file`.
 * **Metadata** — `chdm_read_metadata()` with any tag (`CHDM_TAG('C','H','T','2')`, …).
 * **Diagnostics** — `chdm_set_log_callback()` receives MAME's messages.
+* **Whole images** — `chdm_create_dvd()` compresses a 2048-byte-sector image
+  (a DVD or PSP UMD ISO) into a DVD CHD like `chdman createdvd`, with a
+  choice of hunk size and codecs; `chdm_extract_raw()` writes a CHD's data
+  back out, like `chdman extractdvd`. Both report progress through a
+  callback that can also cancel, which deletes the partial output.
 
 `tools/chdm-info.c` and `tools/chdm-extract.c` are complete, small examples.
 

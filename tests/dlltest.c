@@ -75,6 +75,51 @@ int main(int argc, char *argv[])
 
 	chdm_close(file);
 
+	/* whole-image conversion: CHD -> ISO -> CHD (zstd, 2048-byte hunks) */
+	{
+		const char *iso = "chdm-dlltest-out.iso";
+		const char *chd = "chdm-dlltest-out.chd";
+		const uint32_t zstd[4] = { CHDM_TAG('z','s','t','d'), 0, 0, 0 };
+		FILE *f;
+
+		CHECK(chdm_extract_raw(argv[1], iso, NULL, NULL) == CHDM_OK);
+		f = fopen(iso, "rb");
+		CHECK(f != NULL);
+		if (f)
+		{
+			size_t n = 0, got;
+			while ((got = fread(buf, 1, sizeof(buf), f)) > 0)
+			{
+				for (i = 0; i < got; i++)
+				{
+					if (buf[i] != pattern(n + i))
+					{
+						printf("FAILED: extracted byte %u differs\n", (unsigned)(n + i));
+						failures++;
+						break;
+					}
+				}
+				n += got;
+			}
+			fclose(f);
+			CHECK(n == 65536);
+		}
+
+		CHECK(chdm_create_dvd(iso, chd, 2048, zstd, NULL, NULL) == CHDM_OK);
+		file = NULL;
+		CHECK(chdm_open(chd, CHDM_OPEN_READ, NULL, &file) == CHDM_OK);
+		if (file)
+		{
+			CHECK(chdm_get_info(file, &info) == CHDM_OK);
+			CHECK(info.kind == CHDM_KIND_DVD && info.hunk_bytes == 2048 && info.logical_bytes == 65536);
+			CHECK(chdm_read_bytes(file, 40000, buf, 10) == CHDM_OK);
+			CHECK(buf[0] == pattern(40000) && buf[9] == pattern(40009));
+			chdm_close(file);
+		}
+		remove(iso);
+		remove(chd);
+	}
+
 	printf(failures ? "%d check(s) FAILED\n" : "DLL test passed\n", failures);
 	return failures ? 1 : 0;
 }
