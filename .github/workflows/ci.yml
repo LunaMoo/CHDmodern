@@ -40,3 +40,30 @@ jobs:
       - name: Test
         if: ${{ !matrix.cross }}
         run: ctest --test-dir build -C Release --output-on-failure
+
+  msbuild:
+    name: Visual Studio solution ${{ matrix.platform }}
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [x64, x86, ARM64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: microsoft/setup-msbuild@v2
+      - name: Build
+        run: msbuild msvc\CHDmodern.sln /m /p:Configuration=Release /p:Platform=${{ matrix.platform }}
+      - name: Test
+        if: ${{ matrix.platform != 'ARM64' }}
+        shell: pwsh
+        run: |
+          $plat = if ('${{ matrix.platform }}' -eq 'x86') { 'Win32' } else { '${{ matrix.platform }}' }
+          & "build\msvc\$plat\Release\chdm-selftest.exe" $env:RUNNER_TEMP
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+  msvc-projects-up-to-date:
+    name: Generated VS projects are current
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 tools/gen-msvc.py && git diff --exit-code msvc

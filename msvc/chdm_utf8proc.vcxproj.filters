@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="utf8proc">
+      <UniqueIdentifier>{9AE239F0-AEFC-51F2-BF01-ABB7C105E753}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\third_party\utf8proc\utf8proc.c">
+      <Filter>utf8proc</Filter>
+    </ClCompile>
+    <ClInclude Include="..\third_party\utf8proc\utf8proc.h">
+      <Filter>utf8proc</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

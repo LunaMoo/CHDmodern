@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="flac">
+      <UniqueIdentifier>{EE348323-6406-5191-90F2-2128B4FFAB93}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="flac\include">
+      <UniqueIdentifier>{82B07F34-033E-57FF-A7AA-9FD9BFB13E7A}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="flac\include\FLAC">
+      <UniqueIdentifier>{19E52536-6EB5-5A80-AEAB-947A8166F95B}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="flac\src">
+      <UniqueIdentifier>{5D685AB4-E472-5E4D-AA80-22D4F04F16BA}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="flac\src\libFLAC">
+      <UniqueIdentifier>{BE06A4B8-310E-5C5A-AC30-C3D076B294AA}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="flac\src\share">
+      <UniqueIdentifier>{A9CAD72B-A73E-5628-BA71-DE2658FD6881}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="flac\src\share\win_utf8_io">
+      <UniqueIdentifier>{E811340C-B345-5002-BD38-D220868008A9}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\third_party\flac\src\libFLAC\bitmath.c">
+      <Filter>flac\src\libFLAC</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\flac\src\libFLAC\bitreader.c">
+      <Filter>flac\src\libFLAC</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\flac\src\libFLAC\bitwriter.c">
+      <Filter>flac\src\libFLAC</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\flac\src\libFLAC\cpu.c">
+      <Filter>flac\src\libFLAC</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\flac\src\libFLAC\crc.c">
+      <Filter>flac\src\libFLAC</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\flac\src\libFLAC\fixed.c">
+      <Filter>flac\src\libFLAC</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\flac\src\libFLAC\fixed_intrin_avx2.c">
+      <Filter>flac\src\libFLAC</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\flac\src\libFLAC\fixed_intrin_sse2.c">
+      <Filter>flac\src\libFLAC</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\flac\src\libFLAC\fixed_intrin_sse42.c">
+      <Filter>flac\src\libFLAC</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\flac\src\libFLAC\fixed_intrin_ssse3.c">
+      <Filter>flac\src\libFLAC</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\flac\src\libFLAC\float.c">
+      <Filter>flac\src\libFLAC</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\flac\src\libFLAC\format.c">
+      <Filter>flac\src\libFLAC</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\flac\src\libFLAC\lpc.c">
+      <Filter>flac\src\libFLAC</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\flac\src\libFLAC\lpc_intrin_avx2.c">
+      <Filter>flac\src\libFLAC</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\flac\src\libFLAC\lpc_intrin_fma.c">
+      <Filter>flac\src\libFLAC</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\flac\src\libFLAC\lpc_intrin_neon.c">
+      <Filter>flac\src\libFLAC</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\flac\src\libFLAC\lpc_intrin_sse2.c">
+      <Filter>flac\src\libFLAC</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\flac\src\libFLAC\lpc_intrin_sse41.c">
+      <Filter>flac\src\libFLAC</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\flac\src\libFLAC\md5.c">
+      <Filter>flac\src\libFLAC</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\flac\src\libFLAC\memory.c">
+      <Filter>flac\src\libFLAC</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\flac\src\libFLAC\stream_decoder.c">
+      <Filter>flac\src\libFLAC</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\flac\src\libFLAC\stream_encoder.c">
+      <Filter>flac\src\libFLAC</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\flac\src\libFLAC\stream_encoder_framing.c">
+      <Filter>flac\src\libFLAC</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\flac\src\libFLAC\stream_encoder_intrin_avx2.c">
+      <Filter>flac\src\libFLAC</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\flac\src\libFLAC\stream_encoder_intrin_sse2.c">
+      <Filter>flac\src\libFLAC</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\flac\src\libFLAC\stream_encoder_intrin_ssse3.c">
+      <Filter>flac\src\libFLAC</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\flac\src\libFLAC\window.c">
+      <Filter>flac\src\libFLAC</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\flac\src\share\win_utf8_io\win_utf8_io.c">
+      <Filter>flac\src\share\win_utf8_io</Filter>
+    </ClCompile>
+    <ClInclude Include="..\third_party\flac\include\FLAC\all.h">
+      <Filter>flac\include\FLAC</Filter>
+    </ClInclude>
+    <ClInclude Include="..\third_party\flac\include\FLAC\assert.h">
+      <Filter>flac\include\FLAC</Filter>
+    </ClInclude>
+    <ClInclude Include="..\third_party\flac\include\FLAC\callback.h">
+      <Filter>flac\include\FLAC</Filter>
+    </ClInclude>
+    <ClInclude Include="..\third_party\flac\include\FLAC\export.h">
+      <Filter>flac\include\FLAC</Filter>
+    </ClInclude>
+    <ClInclude Include="..\third_party\flac\include\FLAC\format.h">
+      <Filter>flac\include\FLAC</Filter>
+    </ClInclude>
+    <ClInclude Include="..\third_party\flac\include\FLAC\metadata.h">
+      <Filter>flac\include\FLAC</Filter>
+    </ClInclude>
+    <ClInclude Include="..\third_party\flac\include\FLAC\ordinals.h">
+      <Filter>flac\include\FLAC</Filter>
+    </ClInclude>
+    <ClInclude Include="..\third_party\flac\include\FLAC\stream_decoder.h">
+      <Filter>flac\include\FLAC</Filter>
+    </ClInclude>
+    <ClInclude Include="..\third_party\flac\include\FLAC\stream_encoder.h">
+      <Filter>flac\include\FLAC</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

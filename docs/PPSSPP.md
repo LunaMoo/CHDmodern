@@ -35,12 +35,33 @@ libchdr bundles its own LZMA SDK, so remove libchdr from the link in the same
 change to avoid duplicate `Lzma*` symbols (CHDmodern brings LZMA and libFLAC
 itself).
 
-Builds that don't use CMake (MSVC `.vcxproj`, `Android.mk`, libretro
-`Makefile.common`) need the file list from CHDmodern's `CMakeLists.txt`
-(`CHDMODERN_SOURCES` + the `third_party` sources), compiled as C++20 / C99
-with `ZLIB_CONST LSB_FIRST CRLF=2` (`CRLF=3` on Windows) `UTF8PROC_STATIC
-FLAC__NO_DLL Z7_ST`, and include paths `include`, `src/mame/util`,
-`src/mame/osd`, `third_party`, `third_party/flac/include`,
+### Windows (PPSSPP.sln)
+
+Add `ext/CHDmodern/msvc/chdmodern.vcxproj` and the `chdm_lzma`, `chdm_flac`
+and `chdm_utf8proc` projects next to it to `PPSSPP.sln`, reference
+`chdmodern` from Core instead of libchdr, add `ext\CHDmodern\include` to
+Core's include path, and create `ext/CHDmodern.settings.props` so the
+library matches PPSSPP's static CRT and reuses its zlib/zstd:
+
+```xml
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <ChdModernStaticCRT>true</ChdModernStaticCRT>
+    <ChdModernBundledZlib>false</ChdModernBundledZlib>
+    <ChdModernZlibInclude>$(MSBuildThisFileDirectory)zlib</ChdModernZlibInclude>
+    <ChdModernBundledZstd>false</ChdModernBundledZstd>
+    <ChdModernZstdInclude>$(MSBuildThisFileDirectory)zstd\lib</ChdModernZstdInclude>
+  </PropertyGroup>
+</Project>
+```
+
+### Other non-CMake builds
+
+`Android.mk` and libretro's `Makefile.common` need the file list from
+CHDmodern's `CMakeLists.txt` (`CHDMODERN_SOURCES` + the `third_party`
+sources), compiled as C++20 / C99 with `ZLIB_CONST LSB_FIRST CRLF=2
+UTF8PROC_STATIC FLAC__NO_DLL Z7_ST`, and include paths `include`,
+`src/mame/util`, `src/mame/osd`, `third_party`, `third_party/flac/include`,
 `third_party/utf8proc`.
 
 ## 2. BlockDevices.h

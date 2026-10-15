@@ -91,3 +91,10 @@ done
 rev="$(git -C "$MAME" rev-parse HEAD 2>/dev/null || echo unknown)"
 echo "$rev" > "$ROOT/MAME_REVISION"
 echo "Imported MAME $rev"
+
+# keep the Visual Studio projects in step with the source lists
+if command -v python3 >/dev/null 2>&1; then
+	python3 "$ROOT/tools/gen-msvc.py"
+else
+	echo "note: python3 not found - run tools/gen-msvc.py to update msvc/" >&2
+fi

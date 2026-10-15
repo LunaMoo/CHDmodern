@@ -218,7 +218,13 @@ function(chdmodern_configure target)
 			$<$<BOOL:${CHDMODERN_NO_THREADS}>:CHDMODERN_NO_THREADS>
 			$<$<BOOL:${WIN32}>:WIN32_LEAN_AND_MEAN NOMINMAX UNICODE _UNICODE>)
 	if(MSVC)
-		target_compile_options(${target} PRIVATE /utf-8 /Zc:__cplusplus /wd4100 /wd4244 /wd4267)
+		# same options and warning set MAME uses for its own MSVC builds
+		target_compile_definitions(${target} PRIVATE _CRT_SECURE_NO_DEPRECATE _CRT_NONSTDC_NO_DEPRECATE)
+		target_compile_options(${target} PRIVATE
+			/utf-8 /bigobj /permissive-
+			$<$<COMPILE_LANGUAGE:CXX>:/Zc:__cplusplus /Zc:preprocessor>
+			/wd4018 /wd4100 /wd4127 /wd4146 /wd4244 /wd4245 /wd4250 /wd4267 /wd4305 /wd4324
+			/wd4334 /wd4389 /wd4456 /wd4457 /wd4458 /wd4459 /wd4701 /wd4702 /wd4996)
 	endif()
 	target_link_libraries(${target}
 		PRIVATE ${CHDM_ZLIB} ${CHDM_ZSTD} ${CHDM_LZMA} ${CHDM_FLAC} chdm_utf8proc

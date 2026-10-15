@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="lzma">
+      <UniqueIdentifier>{9F56758E-F5B6-5E6B-8BB6-34E22CBB4CC3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="lzma\C">
+      <UniqueIdentifier>{EFE5E45F-B8C1-5C69-B51C-C0DACB4FCBA6}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\third_party\lzma\C\CpuArch.c">
+      <Filter>lzma\C</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\lzma\C\LzFind.c">
+      <Filter>lzma\C</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\lzma\C\LzFindOpt.c">
+      <Filter>lzma\C</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\lzma\C\LzmaDec.c">
+      <Filter>lzma\C</Filter>
+    </ClCompile>
+    <ClCompile Include="..\third_party\lzma\C\LzmaEnc.c">
+      <Filter>lzma\C</Filter>
+    </ClCompile>
+    <ClInclude Include="..\third_party\lzma\C\7zTypes.h">
+      <Filter>lzma\C</Filter>
+    </ClInclude>
+    <ClInclude Include="..\third_party\lzma\C\7zWindows.h">
+      <Filter>lzma\C</Filter>
+    </ClInclude>
+    <ClInclude Include="..\third_party\lzma\C\Compiler.h">
+      <Filter>lzma\C</Filter>
+    </ClInclude>
+    <ClInclude Include="..\third_party\lzma\C\CpuArch.h">
+      <Filter>lzma\C</Filter>
+    </ClInclude>
+    <ClInclude Include="..\third_party\lzma\C\LzFind.h">
+      <Filter>lzma\C</Filter>
+    </ClInclude>
+    <ClInclude Include="..\third_party\lzma\C\LzHash.h">
+      <Filter>lzma\C</Filter>
+    </ClInclude>
+    <ClInclude Include="..\third_party\lzma\C\LzmaDec.h">
+      <Filter>lzma\C</Filter>
+    </ClInclude>
+    <ClInclude Include="..\third_party\lzma\C\LzmaEnc.h">
+      <Filter>lzma\C</Filter>
+    </ClInclude>
+    <ClInclude Include="..\third_party\lzma\C\Precomp.h">
+      <Filter>lzma\C</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

@@ -45,6 +45,40 @@ is plain C, so the consuming project can use any language standard.
 | `CHDMODERN_SYSTEM_{ZLIB,ZSTD,FLAC}` | `OFF` | Use the system library instead of the bundled copy. |
 | `CHDMODERN_{ZLIB,ZSTD,FLAC,LZMA}_TARGET` | empty | Use an existing CMake target (e.g. the host project's own zlib). |
 
+### Visual Studio
+
+Two ways, both without installing anything beyond Visual Studio with the
+"Desktop development with C++" workload:
+
+* **Solution** — open `msvc/CHDmodern.sln`. Configurations Debug/Release,
+  platforms x86, x64 and ARM64. Output goes to `build/msvc/<Platform>/<Configuration>/`;
+  `chdmodern.lib` already contains the bundled zlib/zstd/LZMA/FLAC/utf8proc,
+  so a host links just that one library.
+* **CMake** — *File → Open → Folder…* on the repository; Visual Studio picks
+  up `CMakePresets.json` (x64 Debug/Release, x86, ARM64).
+
+To use the solution's projects inside another solution, add
+`msvc/chdmodern.vcxproj` (plus the `chdm_*` third-party projects it
+references) and put a `CHDmodern.settings.props` next to the CHDmodern
+folder to adapt it, for example for a host that links the CRT statically and
+has its own zlib and zstd:
+
+```xml
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <ChdModernStaticCRT>true</ChdModernStaticCRT>
+    <ChdModernBundledZlib>false</ChdModernBundledZlib>
+    <ChdModernZlibInclude>$(MSBuildThisFileDirectory)zlib</ChdModernZlibInclude>
+    <ChdModernBundledZstd>false</ChdModernBundledZstd>
+    <ChdModernZstdInclude>$(MSBuildThisFileDirectory)zstd\lib</ChdModernZstdInclude>
+  </PropertyGroup>
+</Project>
+```
+
+All options are described at the top of `msvc/CHDmodern.Common.props`. The
+`.vcxproj` files are generated from the source lists by `tools/gen-msvc.py`
+(the sync script runs it), so don't edit them by hand.
+
 ## Using it
 
 ### From CMake
@@ -121,7 +155,8 @@ src/osd_portable.cpp            portable replacement for MAME's OSD layer
 src/mame/util, src/mame/osd     MAME sources (imported, do not edit by hand)
 patches/                        local fixes re-applied on every import
 third_party/                    zlib, zstd, LZMA SDK, libFLAC, utf8proc (from MAME's 3rdparty)
-tools/                          sync script and example tools
+tools/                          sync script, VS project generator, example tools
+msvc/                           Visual Studio solution and projects
 tests/                          self-test
 ```
 
