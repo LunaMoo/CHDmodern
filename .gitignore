@@ -5,3 +5,4 @@
 /.idea/
 CMakeUserPresets.json
 *.chd
+!tests/data/*.chd

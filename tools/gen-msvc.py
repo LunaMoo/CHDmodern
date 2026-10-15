@@ -117,6 +117,25 @@ PROJECTS = {
 		deps=['chdm_zlib', 'chdm_zstd', 'chdm_lzma', 'chdm_flac', 'chdm_utf8proc'],
 		merge_deps=True,
 	),
+	# The same library as a DLL exporting only the C API (chdm_*). Output goes
+	# to a dll\ subfolder so its import library doesn't overwrite the static
+	# chdmodern.lib.
+	'chdmodern_dll': dict(
+		kind='DynamicLibrary', lang='cpp', folder=None,
+		target_name='chdmodern', outdir_suffix='dll\\',
+		sources=None,  # filled in below from 'chdmodern'
+		headers=None,
+		defines=['$(ChdModernDefines)', 'CHDMODERN_SHARED', 'CHDMODERN_BUILDING'],
+		includes=['$(ChdModernIncludes)'],
+		deps=['chdm_zlib', 'chdm_zstd', 'chdm_lzma', 'chdm_flac', 'chdm_utf8proc'],
+		extra_link_libs='$(ChdModernDllLinkLibs)',
+	),
+	'chdm-dlltest': dict(
+		kind='Application', lang='c', folder='tests',
+		outdir_suffix='dll\\',
+		sources=files('tests/dlltest.c'), headers=[],
+		defines=['CHDMODERN_SHARED'], includes=['include'], deps=['chdmodern_dll'],
+	),
 	'chdm-info': dict(
 		kind='Application', lang='c', folder='tools',
 		sources=files('tools/chdm-info.c'), headers=[],
@@ -133,6 +152,9 @@ PROJECTS = {
 		defines=['$(ChdModernDefines)'], includes=['$(ChdModernIncludes)'], deps=['chdmodern'],
 	),
 }
+
+PROJECTS['chdmodern_dll']['sources'] = PROJECTS['chdmodern']['sources']
+PROJECTS['chdmodern_dll']['headers'] = PROJECTS['chdmodern']['headers']
 
 # zlib and zstd can be supplied by a host solution instead (see the props file)
 OPTIONAL_DEPS = {
@@ -184,6 +206,13 @@ def gen_vcxproj(name, p):
 	w('    <Import Project="$(UserRootDir)\\Microsoft.Cpp.$(Platform).user.props" Condition="exists(\'$(UserRootDir)\\Microsoft.Cpp.$(Platform).user.props\')" Label="LocalAppDataPlatform" />')
 	w('    <Import Project="CHDmodern.Common.props" />')
 	w('  </ImportGroup>')
+	if p.get('outdir_suffix') or p.get('target_name'):
+		w('  <PropertyGroup>')
+		if p.get('outdir_suffix'):
+			w(f'    <OutDir>$(ChdModernOutDir){p["outdir_suffix"]}</OutDir>')
+		if p.get('target_name'):
+			w(f'    <TargetName>{p["target_name"]}</TargetName>')
+		w('  </PropertyGroup>')
 	w('  <ItemDefinitionGroup>')
 	w('    <ClCompile>')
 	defines = ';'.join(p['defines'] + ['%(PreprocessorDefinitions)'])
@@ -207,6 +236,12 @@ def gen_vcxproj(name, p):
 	if p['kind'] == 'Application':
 		w('    <Link>')
 		w('      <SubSystem>Console</SubSystem>')
+		w('    </Link>')
+	if p['kind'] == 'DynamicLibrary':
+		w('    <Link>')
+		w('      <SubSystem>Windows</SubSystem>')
+		if p.get('extra_link_libs'):
+			w(f'      <AdditionalDependencies>{p["extra_link_libs"]};%(AdditionalDependencies)</AdditionalDependencies>')
 		w('    </Link>')
 	w('  </ItemDefinitionGroup>')
 	w('  <ItemGroup>')

@@ -16,6 +16,9 @@
                                     links its own.  Then set
                                     ChdModernZlibInclude to its include dir.
     ChdModernBundledZstd   false  = same for zstd (ChdModernZstdInclude).
+    ChdModernDllLinkLibs   extra .lib files the DLL (chdmodern_dll) links,
+                           e.g. the host's zlib/zstd when the bundled ones
+                           are switched off.  Default: empty.
     ChdModernOutDir        where .lib/.exe files go
                            (default: <repo>\build\msvc\<Platform>\<Configuration>\)
 -->
@@ -32,6 +35,7 @@
     <ChdModernZlibInclude Condition="'$(ChdModernZlibInclude)' == ''">$(ChdModernRoot)third_party\zlib</ChdModernZlibInclude>
     <ChdModernZstdInclude Condition="'$(ChdModernZstdInclude)' == ''">$(ChdModernRoot)third_party\zstd\lib</ChdModernZstdInclude>
 
+    <ChdModernDllLinkLibs Condition="'$(ChdModernDllLinkLibs)' == ''"></ChdModernDllLinkLibs>
     <ChdModernOutDir Condition="'$(ChdModernOutDir)' == ''">$(ChdModernRoot)build\msvc\$(Platform)\$(Configuration)\</ChdModernOutDir>
     <OutDir>$(ChdModernOutDir)</OutDir>
     <IntDir>$(ChdModernRoot)build\msvc\obj\$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>

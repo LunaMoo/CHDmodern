@@ -54,6 +54,14 @@ Two ways, both without installing anything beyond Visual Studio with the
   platforms x86, x64 and ARM64. Output goes to `build/msvc/<Platform>/<Configuration>/`;
   `chdmodern.lib` already contains the bundled zlib/zstd/LZMA/FLAC/utf8proc,
   so a host links just that one library.
+* **DLL from the solution** — the `chdmodern_dll` project builds
+  `chdmodern.dll` and its import library `chdmodern.lib` into
+  `build/msvc/<Platform>/<Configuration>/dll/` (a separate folder, so the
+  import library doesn't overwrite the static `chdmodern.lib`). It exports
+  only the C API; programs using it define `CHDMODERN_SHARED` and link the
+  import library — `tests/dlltest.c` (project `chdm-dlltest`) is a minimal
+  example. To build just the DLL: right-click `chdmodern_dll` → *Build*, or
+  `msbuild msvc\CHDmodern.sln /t:chdmodern_dll /p:Configuration=Release /p:Platform=x64`.
 * **CMake** — *File → Open → Folder…* on the repository; Visual Studio picks
   up `CMakePresets.json` (x64 Debug/Release, x86, ARM64).
 
@@ -75,7 +83,9 @@ has its own zlib and zstd:
 </Project>
 ```
 
-All options are described at the top of `msvc/CHDmodern.Common.props`. The
+All options are described at the top of `msvc/CHDmodern.Common.props`
+(for the DLL with the host's own zlib/zstd, also set `ChdModernDllLinkLibs`
+to their `.lib` files). The
 `.vcxproj` files are generated from the source lists by `tools/gen-msvc.py`
 (the sync script runs it), so don't edit them by hand.
 

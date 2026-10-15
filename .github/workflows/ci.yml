@@ -17,6 +17,7 @@ jobs:
           - { name: Linux no threads,    os: ubuntu-latest,  cmake_args: "-DCHDMODERN_NO_THREADS=ON" }
           - { name: macOS,               os: macos-latest,   cmake_args: "" }
           - { name: Windows MSVC x64,    os: windows-latest, cmake_args: "-A x64" }
+          - { name: Windows MSVC x64 DLL, os: windows-latest, cmake_args: "-A x64 -DCHDMODERN_SHARED=ON" }
           - { name: Windows MSVC ARM64,  os: windows-latest, cmake_args: "-A ARM64", cross: true }
           - { name: Android arm64,       os: ubuntu-latest,  cross: true, android: true }
 
@@ -59,6 +60,8 @@ jobs:
         run: |
           $plat = if ('${{ matrix.platform }}' -eq 'x86') { 'Win32' } else { '${{ matrix.platform }}' }
           & "build\msvc\$plat\Release\chdm-selftest.exe" $env:RUNNER_TEMP
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & "build\msvc\$plat\Release\dll\chdm-dlltest.exe" tests\data\sample_dvd_zlib.chd
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
   msvc-projects-up-to-date:

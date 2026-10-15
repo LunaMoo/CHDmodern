@@ -283,6 +283,12 @@ if(CHDMODERN_BUILD_TESTS)
 		target_link_libraries(chdm-selftest PRIVATE chdmodern)
 	endif()
 	add_test(NAME selftest COMMAND chdm-selftest ${CMAKE_CURRENT_BINARY_DIR})
+
+	# C-API-only consumer; against the shared build this exercises the DLL/.so
+	add_executable(chdm-dlltest tests/dlltest.c)
+	target_link_libraries(chdm-dlltest PRIVATE chdmodern)
+	set_target_properties(chdm-dlltest PROPERTIES LINKER_LANGUAGE CXX)
+	add_test(NAME dlltest COMMAND chdm-dlltest ${CMAKE_CURRENT_SOURCE_DIR}/tests/data/sample_dvd_zlib.chd)
 endif()
 
 # ---------------------------------------------------------------------------

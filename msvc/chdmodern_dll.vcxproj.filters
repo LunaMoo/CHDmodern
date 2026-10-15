@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="include">
+      <UniqueIdentifier>{AED361C2-943B-53A6-AD06-9A28A551CE64}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="include\chdmodern">
+      <UniqueIdentifier>{A0FC2A6B-DC80-5230-9F5B-0F0BB77FDA15}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="osd">
+      <UniqueIdentifier>{7068F025-B677-5A84-9F6C-37778802BE64}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src">
+      <UniqueIdentifier>{92A82D5E-3CAB-5B15-9E39-D12ACFB57899}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="util">
+      <UniqueIdentifier>{B0F042CC-D683-5753-9D7D-E9C26FFCC27D}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\src\mame\util\avhuff.cpp">
+      <Filter>util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\mame\util\bitmap.cpp">
+      <Filter>util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\mame\util\cdrom.cpp">
+      <Filter>util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\mame\util\chd.cpp">
+      <Filter>util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\mame\util\chdcodec.cpp">
+      <Filter>util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\mame\util\corefile.cpp">
+      <Filter>util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\mame\util\corestr.cpp">
+      <Filter>util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\mame\util\flac.cpp">
+      <Filter>util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\mame\util\hashing.cpp">
+      <Filter>util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\mame\util\huffman.cpp">
+      <Filter>util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\mame\util\ioprocs.cpp">
+      <Filter>util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\mame\util\md5.cpp">
+      <Filter>util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\mame\util\palette.cpp">
+      <Filter>util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\mame\util\path.cpp">
+      <Filter>util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\mame\util\strformat.cpp">
+      <Filter>util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\mame\util\unicode.cpp">
+      <Filter>util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\mame\util\vecstream.cpp">
+      <Filter>util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\osd_portable.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\chdmodern.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClInclude Include="..\include\chdmodern\chdmodern.h">
+      <Filter>include\chdmodern</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\mame\util\abi.h">
+      <Filter>util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\mame\util\avhuff.h">
+      <Filter>util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\mame\util\bitmap.h">
+      <Filter>util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\mame\util\bitstream.h">
+      <Filter>util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\mame\util\cdrom.h">
+      <Filter>util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\mame\util\chd.h">
+      <Filter>util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\mame\util\chdcodec.h">
+      <Filter>util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\mame\util\corefile.h">
+      <Filter>util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\mame\util\corestr.h">
+      <Filter>util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\mame\util\coretmpl.h">
+      <Filter>util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\mame\util\endianness.h">
+      <Filter>util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\mame\util\flac.h">
+      <Filter>util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\mame\util\hashing.h">
+      <Filter>util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\mame\util\huffman.h">
+      <Filter>util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\mame\util\ioprocs.h">
+      <Filter>util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\mame\util\ioprocsfill.h">
+      <Filter>util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\mame\util\md5.h">
+      <Filter>util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\mame\util\multibyte.h">
+      <Filter>util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\mame\util\palette.h">
+      <Filter>util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\mame\util\path.h">
+      <Filter>util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\mame\util\strformat.h">
+      <Filter>util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\mame\util\unicode.h">
+      <Filter>util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\mame\util\utilfwd.h">
+      <Filter>util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\mame\util\vecstream.h">
+      <Filter>util</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\mame\osd\eigcc.h">
+      <Filter>osd</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\mame\osd\eigccarm.h">
+      <Filter>osd</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\mame\osd\eigccppc.h">
+      <Filter>osd</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\mame\osd\eigccx86.h">
+      <Filter>osd</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\mame\osd\eivc.h">
+      <Filter>osd</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\mame\osd\eivcarm.h">
+      <Filter>osd</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\mame\osd\eivcx86.h">
+      <Filter>osd</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\mame\osd\eminline.h">
+      <Filter>osd</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\mame\osd\osdcomm.h">
+      <Filter>osd</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\mame\osd\osdcore.h">
+      <Filter>osd</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\mame\osd\osdfile.h">
+      <Filter>osd</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\mame\osd\strconv.h">
+      <Filter>osd</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>
