@@ -719,8 +719,11 @@ int chdm_create_dvd(const char *input_path, const char *output_path, uint32_t hu
 				codecs[i] = compression[i];
 		}
 
-		// declared after input: the compressor's worker threads read from it until it's destroyed
-		image_compressor chd(*input, length);
+		// declared after input: the compressor's worker threads read from it until it's destroyed.
+		// On the heap: chd_file_compressor is over 1 MB, more than a whole default thread
+		// stack on Windows (and on most non-main threads elsewhere).
+		auto const compressor = std::make_unique<image_compressor>(*input, length);
+		image_compressor &chd = *compressor;
 		err = chd.create(output_path, length, hunk_bytes, 2048, codecs);
 		output_created = true;
 		if (!err)

@@ -20,6 +20,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 #include <random>
 #include <string>
 #include <vector>
@@ -79,7 +80,9 @@ private:
 
 bool create_chd(std::string const &path, std::vector<uint8_t> const &data, chd_codec_type codec, bool dvd)
 {
-	memory_compressor chd(data);
+	// chd_file_compressor is over 1 MB: keep it off the stack (Windows' is 1 MB)
+	auto const holder = std::make_unique<memory_compressor>(data);
+	memory_compressor &chd = *holder;
 	chd_codec_type const compression[4] = { codec, CHD_CODEC_NONE, CHD_CODEC_NONE, CHD_CODEC_NONE };
 	uint32_t const hunkbytes = 2048 * 8;
 	if (chd.create(path, data.size(), hunkbytes, 2048, compression))
@@ -234,7 +237,8 @@ bool create_cd_chd(std::string const &path, std::vector<uint8_t> const &frames)
 	t1.pgtype = cdrom_file::CD_TRACK_MODE1;
 	t1.pgsub = cdrom_file::CD_SUB_NONE;
 
-	memory_compressor chd(frames);
+	auto const holder = std::make_unique<memory_compressor>(frames);
+	memory_compressor &chd = *holder;
 	chd_codec_type const compression[4] = { CHD_CODEC_CD_LZMA, CHD_CODEC_CD_ZLIB, CHD_CODEC_CD_FLAC, CHD_CODEC_CD_ZSTD };
 	if (chd.create(path, frames.size(), cdrom_file::FRAMES_PER_HUNK * cdrom_file::FRAME_SIZE, cdrom_file::FRAME_SIZE, compression))
 		return false;
@@ -378,7 +382,8 @@ void test_parent(std::string const &dir, std::vector<uint8_t> const &parent_data
 	{
 		chd_file parent;
 		CHECK(!parent.open(parent_path));
-		memory_compressor child(child_data);
+		auto const holder = std::make_unique<memory_compressor>(child_data);
+		memory_compressor &child = *holder;
 		chd_codec_type const compression[4] = { CHD_CODEC_LZMA, CHD_CODEC_NONE, CHD_CODEC_NONE, CHD_CODEC_NONE };
 		CHECK(!child.create(child_path, child_data.size(), 2048 * 8, compression, parent));
 		CHECK(!child.write_metadata(DVD_METADATA_TAG, 0, std::string()));

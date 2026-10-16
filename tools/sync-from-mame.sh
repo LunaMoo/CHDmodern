@@ -81,8 +81,9 @@ copy "$MAME/3rdparty/flac" "$TP/flac" \
 for p in "$ROOT"/patches/*.patch; do
 	[ -e "$p" ] || continue
 	echo "applying $(basename "$p")"
-	# patches use MAME's paths (src/lib/util/...); map them onto src/mame/util
-	sed -e 's#^\(---\|+++\) [ab]/src/lib/util/#\1 src/mame/util/#' "$p" |
+	# patches use MAME's paths (src/lib/util/..., 3rdparty/...); map them onto ours
+	sed -e 's#^\(---\|+++\) [ab]/src/lib/util/#\1 src/mame/util/#' \
+	    -e 's#^\(---\|+++\) [ab]/3rdparty/#\1 third_party/#' "$p" |
 		patch -d "$ROOT" -p0 --no-backup-if-mismatch --forward
 done
 
