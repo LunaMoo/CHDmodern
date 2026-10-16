@@ -48,6 +48,39 @@ The library file is named `CHDm` on every platform (`CHDm.a`, `CHDm.so`,
 | `CHDMODERN_SYSTEM_{ZLIB,ZSTD,FLAC}` | `OFF` | Use the system library instead of the bundled copy. |
 | `CHDMODERN_{ZLIB,ZSTD,FLAC,LZMA}_TARGET` | empty | Use an existing CMake target (e.g. the host project's own zlib). |
 
+### Platforms
+
+CI builds every one of these on each push:
+
+| Platform | Architectures | Shared library |
+|---|---|---|
+| Windows (MSVC, CMake or the solution) | x86, x64, ARM64 | `CHDm.dll` (+ `CHDm.lib`) |
+| Linux (GCC, Clang) | x64 | `CHDm.so` |
+| macOS | arm64, x86_64 (universal) | `CHDm.dylib` |
+| Android (NDK, API 21+) | arm64-v8a, armeabi-v7a, x86_64, x86 | `CHDm.so` |
+| iOS (12.0+) | arm64 | `CHDm.dylib` |
+
+The shared library has no version suffix (no `CHDm.so.0.3.0` symlink
+chain), so the file can be copied anywhere and loaded by that exact name;
+`chdm_version()` reports the version at runtime.
+
+```sh
+# Android, one ABI per build tree
+cmake -S . -B build-android-arm64 -DCMAKE_BUILD_TYPE=Release -DCHDMODERN_SHARED=ON \
+  -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK/build/cmake/android.toolchain.cmake \
+  -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-21
+# iOS (on a Mac with Xcode)
+cmake -S . -B build-ios -DCMAKE_BUILD_TYPE=Release -DCHDMODERN_SHARED=ON \
+  -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0 \
+  -DCHDMODERN_BUILD_TOOLS=OFF -DCHDMODERN_BUILD_TESTS=OFF
+# macOS universal
+cmake -S . -B build-mac -DCMAKE_BUILD_TYPE=Release -DCHDMODERN_SHARED=ON "-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64"
+```
+
+On iOS a `.dylib` can only be loaded if it is signed together with the app
+(or on a jailbroken / TrollStore device); link the static `CHDm.a` into
+the app when that isn't possible.
+
 ### Visual Studio
 
 Two ways, both without installing anything beyond Visual Studio with the

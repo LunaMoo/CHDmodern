@@ -241,11 +241,12 @@ if(CHDMODERN_SHARED)
 		target_sources(chdmodern PRIVATE src/chdmodern.rc)
 	endif()
 	target_compile_definitions(chdmodern PUBLIC CHDMODERN_SHARED PRIVATE CHDMODERN_BUILDING)
+	# No VERSION/SOVERSION: the file is exactly CHDm.so / CHDm.dylib on every platform (no
+	# CHDm.so.0.3.0 + symlinks), so it can be copied and dlopen()ed by that name.  The version is
+	# available at runtime from chdm_version().
 	set_target_properties(chdmodern PROPERTIES
 		CXX_VISIBILITY_PRESET hidden
-		VISIBILITY_INLINES_HIDDEN ON
-		VERSION ${PROJECT_VERSION}
-		SOVERSION ${PROJECT_VERSION_MAJOR})
+		VISIBILITY_INLINES_HIDDEN ON)
 else()
 	add_library(chdmodern STATIC ${CHDMODERN_SOURCES})
 endif()
