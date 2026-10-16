@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 
 project(CHDmodern
-	VERSION 0.1.0
+	VERSION 0.2.0
 	DESCRIPTION "MAME's CHD (Compressed Hunks of Data) code as a standalone library"
 	LANGUAGES C CXX)
 
@@ -38,7 +38,7 @@ set(CHDMODERN_LZMA_TARGET "" CACHE STRING "Existing CMake target providing the L
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # The bundled third-party code is an implementation detail: keep its symbols
-# out of a shared libchdmodern's export table.
+# out of the shared CHDm library's export table.
 set(CMAKE_C_VISIBILITY_PRESET hidden)
 
 if(CMAKE_C_BYTE_ORDER STREQUAL "BIG_ENDIAN")
@@ -245,6 +245,8 @@ else()
 	add_library(chdmodern STATIC ${CHDMODERN_SOURCES})
 endif()
 add_library(CHDmodern::chdmodern ALIAS chdmodern)
+# CHDm.so / CHDm.dll / CHDm.dylib / CHDm.a / CHDm.lib everywhere, without the platform's "lib" prefix.
+set_target_properties(chdmodern PROPERTIES OUTPUT_NAME CHDm PREFIX "" IMPORT_PREFIX "")
 chdmodern_configure(chdmodern)
 
 # A static chdmodern needs its bundled dependencies at final link time.

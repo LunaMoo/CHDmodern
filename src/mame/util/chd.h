@@ -454,6 +454,7 @@ public:
 	// compression management
 	void compress_begin();
 	std::error_condition compress_continue(double &progress, double &ratio);
+	void compress_abort();
 
 protected:
 	// required override: read more data

@@ -39,7 +39,7 @@ extern "C" {
 #endif
 
 #define CHDMODERN_VERSION_MAJOR 0
-#define CHDMODERN_VERSION_MINOR 1
+#define CHDMODERN_VERSION_MINOR 2
 #define CHDMODERN_VERSION_PATCH 0
 
 /* ---------------------------------------------------------------------- */
@@ -83,6 +83,7 @@ typedef enum chdm_error
 	CHDM_ERR_OUT_OF_MEMORY          = 103,
 	CHDM_ERR_INVALID_ARGUMENT       = 104,
 	CHDM_ERR_NOT_SUPPORTED          = 105,
+	CHDM_ERR_CANCELLED              = 106,  /* a progress callback asked to stop */
 	CHDM_ERR_UNKNOWN                = 199
 } chdm_error;
 
@@ -269,6 +270,35 @@ CHDM_API int chdm_cd_read_sector(chdm_cd *cd, uint32_t lba, void *buffer, uint32
 
 /* Read 96 bytes of subcode for one sector. */
 CHDM_API int chdm_cd_read_subcode(chdm_cd *cd, uint32_t lba, void *buffer);
+
+/* ---------------------------------------------------------------------- */
+/*  Converting whole images                                               */
+/* ---------------------------------------------------------------------- */
+
+/* Progress callback for the conversion functions below, called from the
+   calling thread with progress in [0, 1].  Return nonzero to cancel; the
+   function then returns CHDM_ERR_CANCELLED and deletes the partial output. */
+typedef int (*chdm_progress_func)(void *user, double progress);
+
+/* chdman createdvd's default hunk size. */
+#define CHDM_DVD_HUNK_BYTES_DEFAULT 4096u
+
+/* Compress a 2048-byte-sector image (a DVD or PSP UMD ISO) into a DVD CHD,
+   like "chdman createdvd".  hunk_bytes must be a multiple of 2048 (0 means
+   CHDM_DVD_HUNK_BYTES_DEFAULT).  compression lists up to four codec
+   FourCCs (CHDM_TAG('z','s','t','d'), ...; unused entries 0), or NULL for
+   chdman's defaults (LZMA, zlib, Huffman, FLAC).  An existing output file
+   is overwritten.  progress may be NULL. */
+CHDM_API int chdm_create_dvd(const char *input_path, const char *output_path, uint32_t hunk_bytes,
+		const uint32_t compression[4], chdm_progress_func progress, void *user);
+
+/* Write the logical (uncompressed) data of a CHD to a file, e.g. a DVD CHD
+   back to its ISO, like "chdman extractdvd".  CD-ROM, GD-ROM and A/V CHDs
+   are refused with CHDM_ERR_UNSUPPORTED_FORMAT, since their raw data isn't
+   a usable image.  An existing output file is overwritten.  progress may
+   be NULL. */
+CHDM_API int chdm_extract_raw(const char *input_path, const char *output_path,
+		chdm_progress_func progress, void *user);
 
 #ifdef __cplusplus
 }

@@ -320,6 +320,8 @@ void test_cd(std::string const &dir)
 		chdm_cd_close(cd);
 	}
 	chdm_close(file);
+	// raw CD data isn't an image anyone can use
+	CHECK(chdm_extract_raw(path.c_str(), (dir + "/selftest_cd.bin").c_str(), nullptr, nullptr) == CHDM_ERR_UNSUPPORTED_FORMAT);
 	if (!g_keep)
 		std::remove(path.c_str());
 	std::printf(g_failures == before ? "ok\n" : "FAILED\n");
@@ -447,6 +449,104 @@ void test_parent(std::string const &dir, std::vector<uint8_t> const &parent_data
 } // anonymous namespace
 
 
+std::vector<uint8_t> read_file(std::string const &path)
+{
+	std::vector<uint8_t> bytes;
+	if (FILE *f = std::fopen(path.c_str(), "rb"))
+	{
+		std::fseek(f, 0, SEEK_END);
+		bytes.resize(std::size_t(std::ftell(f)));
+		std::fseek(f, 0, SEEK_SET);
+		if (std::fread(bytes.data(), 1, bytes.size(), f) != bytes.size())
+			bytes.clear();
+		std::fclose(f);
+	}
+	return bytes;
+}
+
+bool file_exists(std::string const &path)
+{
+	if (FILE *f = std::fopen(path.c_str(), "rb"))
+	{
+		std::fclose(f);
+		return true;
+	}
+	return false;
+}
+
+// chdm_create_dvd / chdm_extract_raw: ISO -> CHD -> ISO with both PSP-style hunk sizes.
+void test_convert(std::string const &dir, std::vector<uint8_t> const &data)
+{
+	std::printf("convert    ... ");
+	std::fflush(stdout);
+	int const before = g_failures;
+
+	std::string const iso = dir + "/selftest_convert.iso";
+	std::string const chd = dir + "/selftest_convert.chd";
+	std::string const back = dir + "/selftest_convert_back.iso";
+	if (FILE *f = std::fopen(iso.c_str(), "wb"))
+	{
+		CHECK(std::fwrite(data.data(), 1, data.size(), f) == data.size());
+		std::fclose(f);
+	}
+
+	uint32_t const zstd[4] = { CHDM_TAG('z','s','t','d'), 0, 0, 0 };
+	struct { uint32_t hunk; uint32_t const *codecs; uint32_t first; } const cases[] = {
+		{ 2048, nullptr, CHD_CODEC_LZMA },
+		{ 4096, zstd,    CHD_CODEC_ZSTD },
+	};
+	for (auto const &c : cases)
+	{
+		double last = -1.0;
+		auto const track = [] (void *user, double p) -> int { *static_cast<double *>(user) = p; return 0; };
+		CHECK_OK(chdm_create_dvd(iso.c_str(), chd.c_str(), c.hunk, c.codecs, track, &last));
+		CHECK(last == 1.0);
+
+		chdm_file *file = nullptr;
+		CHECK_OK(chdm_open(chd.c_str(), CHDM_OPEN_READ, nullptr, &file));
+		if (file)
+		{
+			chdm_info info;
+			CHECK_OK(chdm_get_info(file, &info));
+			CHECK(info.kind == CHDM_KIND_DVD);
+			CHECK(info.hunk_bytes == c.hunk && info.unit_bytes == 2048);
+			CHECK(info.logical_bytes == data.size());
+			CHECK(info.compression[0] == c.first);
+			chdm_close(file);
+		}
+
+		last = -1.0;
+		CHECK_OK(chdm_extract_raw(chd.c_str(), back.c_str(), track, &last));
+		CHECK(last == 1.0);
+		CHECK(read_file(back) == data);
+		std::remove(back.c_str());
+		std::remove(chd.c_str());
+	}
+
+	// cancelling removes the partial output
+	auto const cancel = [] (void *, double) -> int { return 1; };
+	CHECK(chdm_create_dvd(iso.c_str(), chd.c_str(), 2048, nullptr, cancel, nullptr) == CHDM_ERR_CANCELLED);
+	CHECK(!file_exists(chd));
+	CHECK_OK(chdm_create_dvd(iso.c_str(), chd.c_str(), 2048, zstd, nullptr, nullptr));
+	CHECK(chdm_extract_raw(chd.c_str(), back.c_str(), cancel, nullptr) == CHDM_ERR_CANCELLED);
+	CHECK(!file_exists(back));
+
+	// bad input
+	CHECK(chdm_create_dvd(iso.c_str(), chd.c_str(), 3000, nullptr, nullptr, nullptr) == CHDM_ERR_INVALID_ARGUMENT);
+	CHECK(chdm_create_dvd((dir + "/does-not-exist.iso").c_str(), chd.c_str(), 2048, nullptr, nullptr, nullptr) == CHDM_ERR_NOT_FOUND);
+	if (FILE *f = std::fopen(iso.c_str(), "ab"))
+	{
+		std::fputc(0, f);  // no longer a whole number of sectors
+		std::fclose(f);
+	}
+	CHECK(chdm_create_dvd(iso.c_str(), back.c_str(), 2048, nullptr, nullptr, nullptr) == CHDM_ERR_INVALID_DATA);
+	CHECK(!file_exists(back));
+
+	std::printf(g_failures == before ? "ok\n" : "FAILED\n");
+	std::remove(iso.c_str());
+	std::remove(chd.c_str());
+}
+
 int main(int argc, char *argv[])
 {
 	std::string const dir = (argc > 1) ? argv[1] : ".";
@@ -516,6 +616,7 @@ int main(int argc, char *argv[])
 
 	test_cd(dir);
 	test_parent(dir, data);
+	test_convert(dir, data);
 
 	// error paths
 	chdm_file *file = nullptr;
