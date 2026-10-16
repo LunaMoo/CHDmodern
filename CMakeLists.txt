@@ -151,7 +151,9 @@ else()
 		PRIVATE
 			NDEBUG HAVE_CONFIG_H OGG_FOUND=0 FLAC__HAS_OGG=0 HAVE_LROUND=1
 			HAVE_INTTYPES_H HAVE_STDBOOL_H HAVE_STDINT_H HAVE_STDIO_H HAVE_STDLIB_H HAVE_STRING_H
-			$<$<NOT:$<C_COMPILER_ID:MSVC>>:HAVE_FSEEKO _FILE_OFFSET_BITS=64 _LARGEFILE_SOURCE>
+			# Not on Android: before API 24, bionic hides fseeko/ftello when _FILE_OFFSET_BITS=64 on
+			# 32-bit ABIs.  MAME only uses FLAC's stream API, never its file I/O, so it doesn't matter.
+			$<$<NOT:$<OR:$<C_COMPILER_ID:MSVC>,$<PLATFORM_ID:Android>>>:HAVE_FSEEKO _FILE_OFFSET_BITS=64 _LARGEFILE_SOURCE>
 			$<$<PLATFORM_ID:Darwin,iOS>:FLAC__SYS_DARWIN>
 			$<$<PLATFORM_ID:Linux,Android>:FLAC__SYS_LINUX>)
 	if(CHDMODERN_BIG_ENDIAN)
@@ -241,11 +243,12 @@ if(CHDMODERN_SHARED)
 		target_sources(chdmodern PRIVATE src/chdmodern.rc)
 	endif()
 	target_compile_definitions(chdmodern PUBLIC CHDMODERN_SHARED PRIVATE CHDMODERN_BUILDING)
+	# No VERSION/SOVERSION: the file is exactly CHDm.so / CHDm.dylib on every platform (no
+	# CHDm.so.0.3.0 + symlinks), so it can be copied and dlopen()ed by that name.  The version is
+	# available at runtime from chdm_version().
 	set_target_properties(chdmodern PROPERTIES
 		CXX_VISIBILITY_PRESET hidden
-		VISIBILITY_INLINES_HIDDEN ON
-		VERSION ${PROJECT_VERSION}
-		SOVERSION ${PROJECT_VERSION_MAJOR})
+		VISIBILITY_INLINES_HIDDEN ON)
 else()
 	add_library(chdmodern STATIC ${CHDMODERN_SOURCES})
 endif()
