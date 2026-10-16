@@ -1,0 +1,36 @@
+// Version resource for CHDm.dll (shown in Explorer's Properties > Details).
+// The numbers come from the public header, the one place they're defined.
+
+#include <winver.h>
+#include "chdmodern/chdmodern.h"
+
+#define CHDM_RC_VERSION CHDMODERN_VERSION_MAJOR,CHDMODERN_VERSION_MINOR,CHDMODERN_VERSION_PATCH,0
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION     CHDM_RC_VERSION
+PRODUCTVERSION  CHDM_RC_VERSION
+FILEFLAGSMASK   VS_FFI_FILEFLAGSMASK
+FILEFLAGS       0
+FILEOS          VOS_NT_WINDOWS32
+FILETYPE        VFT_DLL
+FILESUBTYPE     VFT2_UNKNOWN
+BEGIN
+	BLOCK "StringFileInfo"
+	BEGIN
+		BLOCK "040904B0"
+		BEGIN
+			VALUE "CompanyName",      "CHDmodern contributors"
+			VALUE "FileDescription",  "CHDmodern - MAME's CHD library"
+			VALUE "FileVersion",      CHDMODERN_VERSION_STRING
+			VALUE "InternalName",     "CHDm"
+			VALUE "LegalCopyright",   "BSD-3-Clause"
+			VALUE "OriginalFilename", "CHDm.dll"
+			VALUE "ProductName",      "CHDmodern"
+			VALUE "ProductVersion",   CHDMODERN_VERSION_STRING
+		END
+	END
+	BLOCK "VarFileInfo"
+	BEGIN
+		VALUE "Translation", 0x0409, 1200
+	END
+END

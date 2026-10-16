@@ -17,6 +17,32 @@
 #ifndef CHDMODERN_CHDMODERN_H
 #define CHDMODERN_CHDMODERN_H
 
+/* ---------------------------------------------------------------------- */
+/*  Version                                                               */
+/* ---------------------------------------------------------------------- */
+
+/* The single source of the version number: CMakeLists.txt reads it from
+   here, and so does the DLL's version resource (src/chdmodern.rc).  These
+   describe the header compiled against; chdm_version() reports the library
+   actually loaded, which can differ when it's a separately shipped DLL. */
+#define CHDMODERN_VERSION_MAJOR 0
+#define CHDMODERN_VERSION_MINOR 3
+#define CHDMODERN_VERSION_PATCH 0
+
+#define CHDMODERN_STRINGIFY_(x) #x
+#define CHDMODERN_STRINGIFY(x) CHDMODERN_STRINGIFY_(x)
+/* "0.3.0" */
+#define CHDMODERN_VERSION_STRING \
+	CHDMODERN_STRINGIFY(CHDMODERN_VERSION_MAJOR) "." \
+	CHDMODERN_STRINGIFY(CHDMODERN_VERSION_MINOR) "." \
+	CHDMODERN_STRINGIFY(CHDMODERN_VERSION_PATCH)
+/* 300 for 0.3.0, so versions compare with < and > */
+#define CHDMODERN_VERSION_NUMBER \
+	(CHDMODERN_VERSION_MAJOR * 10000 + CHDMODERN_VERSION_MINOR * 100 + CHDMODERN_VERSION_PATCH)
+
+/* the resource compiler only needs the version */
+#ifndef RC_INVOKED
+
 #include <stddef.h>
 #include <stdint.h>
 
@@ -38,9 +64,11 @@ extern "C" {
 #  define CHDM_API
 #endif
 
-#define CHDMODERN_VERSION_MAJOR 0
-#define CHDMODERN_VERSION_MINOR 2
-#define CHDMODERN_VERSION_PATCH 0
+/* Version of the loaded library: "0.3.0" (CHDMODERN_VERSION_STRING) and
+   300 (CHDMODERN_VERSION_NUMBER).  Available since 0.3.0; a 0.2.0 DLL
+   doesn't export them (but does export chdm_create_dvd). */
+CHDM_API const char *chdm_version(void);
+CHDM_API uint32_t chdm_version_number(void);
 
 /* ---------------------------------------------------------------------- */
 /*  Errors                                                                */
@@ -303,5 +331,7 @@ CHDM_API int chdm_extract_raw(const char *input_path, const char *output_path,
 #ifdef __cplusplus
 }
 #endif
+
+#endif /* RC_INVOKED */
 
 #endif /* CHDMODERN_CHDMODERN_H */

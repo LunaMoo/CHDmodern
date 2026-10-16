@@ -63,6 +63,9 @@
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalOptions>$(ChdModernCppOptions) %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
+    <ResourceCompile>
+      <AdditionalIncludeDirectories>$(MSBuildThisFileDirectory)..\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <AdditionalDependencies>$(ChdModernDllLinkLibs);%(AdditionalDependencies)</AdditionalDependencies>
@@ -88,6 +91,9 @@
     <ClCompile Include="..\src\mame\util\vecstream.cpp" />
     <ClCompile Include="..\src\osd_portable.cpp" />
     <ClCompile Include="..\src\chdmodern.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="..\src\chdmodern.rc" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\include\chdmodern\chdmodern.h" />

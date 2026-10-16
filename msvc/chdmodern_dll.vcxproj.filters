@@ -186,5 +186,8 @@
     <ClInclude Include="..\src\mame\osd\strconv.h">
       <Filter>osd</Filter>
     </ClInclude>
+    <ResourceCompile Include="..\src\chdmodern.rc">
+      <Filter>src</Filter>
+    </ResourceCompile>
   </ItemGroup>
 </Project>

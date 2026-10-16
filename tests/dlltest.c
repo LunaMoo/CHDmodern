@@ -39,7 +39,9 @@ int main(int argc, char *argv[])
 		return 2;
 	}
 
-	printf("CHDmodern C API %d.%d.%d\n", CHDMODERN_VERSION_MAJOR, CHDMODERN_VERSION_MINOR, CHDMODERN_VERSION_PATCH);
+	printf("CHDmodern %s (header %s)\n", chdm_version(), CHDMODERN_VERSION_STRING);
+	CHECK(strcmp(chdm_version(), CHDMODERN_VERSION_STRING) == 0);
+	CHECK(chdm_version_number() == CHDMODERN_VERSION_NUMBER);
 	CHECK(strcmp(chdm_error_string(CHDM_ERR_NOT_FOUND), "file not found") == 0);
 	CHECK(chdm_open("this-file-does-not-exist.chd", CHDM_OPEN_READ, NULL, &file) == CHDM_ERR_NOT_FOUND);
 
