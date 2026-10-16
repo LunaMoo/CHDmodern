@@ -138,6 +138,11 @@ chdm_close(chd);
   choice of hunk size and codecs; `chdm_extract_raw()` writes a CHD's data
   back out, like `chdman extractdvd`. Both report progress through a
   callback that can also cancel, which deletes the partial output.
+* **Version** — `chdm_version()` (`"0.3.0"`) and `chdm_version_number()`
+  (`300`) report the library actually loaded, e.g. to show it in a host's UI
+  when `CHDm.dll` is shipped separately; `CHDMODERN_VERSION_*` give the
+  header's. The numbers are defined once, in `chdmodern.h` — CMake and the
+  DLL's version resource read them from there.
 
 `tools/chdm-info.c` and `tools/chdm-extract.c` are complete, small examples.
 

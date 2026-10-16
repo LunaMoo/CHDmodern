@@ -1,7 +1,14 @@
 cmake_minimum_required(VERSION 3.20)
 
+# The version lives in the public header (see the comment there).
+file(STRINGS ${CMAKE_CURRENT_SOURCE_DIR}/include/chdmodern/chdmodern.h CHDMODERN_VERSION_DEFINES
+	REGEX "^#define CHDMODERN_VERSION_(MAJOR|MINOR|PATCH) [0-9]+$")
+foreach(part MAJOR MINOR PATCH)
+	string(REGEX REPLACE ".*#define CHDMODERN_VERSION_${part} ([0-9]+).*" "\\1" CHDMODERN_VERSION_${part} "${CHDMODERN_VERSION_DEFINES}")
+endforeach()
+
 project(CHDmodern
-	VERSION 0.2.0
+	VERSION ${CHDMODERN_VERSION_MAJOR}.${CHDMODERN_VERSION_MINOR}.${CHDMODERN_VERSION_PATCH}
 	DESCRIPTION "MAME's CHD (Compressed Hunks of Data) code as a standalone library"
 	LANGUAGES C CXX)
 
@@ -229,6 +236,10 @@ if(CHDMODERN_SHARED)
 	# Only the C API (chdm_*) is exported from the shared library; the MAME
 	# C++ API is available when linking statically.
 	add_library(chdmodern SHARED ${CHDMODERN_SOURCES})
+	if(WIN32)
+		# version shown in the DLL's Properties > Details
+		target_sources(chdmodern PRIVATE src/chdmodern.rc)
+	endif()
 	target_compile_definitions(chdmodern PUBLIC CHDMODERN_SHARED PRIVATE CHDMODERN_BUILDING)
 	set_target_properties(chdmodern PROPERTIES
 		CXX_VISIBILITY_PRESET hidden

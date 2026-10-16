@@ -6,6 +6,7 @@
 #include <chdmodern/chdmodern.h>
 
 #include <stdio.h>
+#include <string.h>
 
 static const char *kind_name(chdm_kind kind)
 {
@@ -36,9 +37,14 @@ int main(int argc, char *argv[])
 	int err, i;
 	uint32_t index;
 
+	if (argc == 2 && (strcmp(argv[1], "--version") == 0 || strcmp(argv[1], "-v") == 0))
+	{
+		printf("CHDmodern %s\n", chdm_version());
+		return 0;
+	}
 	if (argc != 2)
 	{
-		fprintf(stderr, "usage: %s file.chd\n", argv[0]);
+		fprintf(stderr, "CHDmodern %s\nusage: %s file.chd\n       %s --version\n", chdm_version(), argv[0], argv[0]);
 		return 2;
 	}
 

@@ -391,6 +391,18 @@ bool write_all(util::core_file &file, uint64_t offset, uint8_t const *data, std:
 
 extern "C" {
 
+const char *chdm_version(void)
+{
+	return CHDMODERN_VERSION_STRING;
+}
+
+
+uint32_t chdm_version_number(void)
+{
+	return CHDMODERN_VERSION_NUMBER;
+}
+
+
 const char *chdm_error_string(int err)
 {
 	switch (err)

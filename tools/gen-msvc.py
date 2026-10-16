@@ -124,6 +124,7 @@ PROJECTS = {
 		includes=['$(ChdModernIncludes)'],
 		deps=['chdm_zlib', 'chdm_zstd', 'chdm_lzma', 'chdm_flac'],
 		extra_link_libs='$(ChdModernDllLinkLibs)',
+		resources=files('src/chdmodern.rc'),
 	),
 	'chdm-dlltest': dict(
 		kind='Application', lang='c', folder='tests',
@@ -232,6 +233,10 @@ def gen_vcxproj(name, p):
 		w('    <Link>')
 		w('      <SubSystem>Console</SubSystem>')
 		w('    </Link>')
+	if p.get('resources'):
+		w('    <ResourceCompile>')
+		w(f'      <AdditionalIncludeDirectories>{include_path("include")};%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>')
+		w('    </ResourceCompile>')
 	if p['kind'] == 'DynamicLibrary':
 		w('    <Link>')
 		w('      <SubSystem>Windows</SubSystem>')
@@ -243,6 +248,11 @@ def gen_vcxproj(name, p):
 	for s in p['sources']:
 		w(f'    <ClCompile Include="{rel(s)}" />')
 	w('  </ItemGroup>')
+	if p.get('resources'):
+		w('  <ItemGroup>')
+		for r in p['resources']:
+			w(f'    <ResourceCompile Include="{rel(r)}" />')
+		w('  </ItemGroup>')
 	if p['headers']:
 		w('  <ItemGroup>')
 		for h in p['headers']:
@@ -272,7 +282,8 @@ def gen_filters(name, p):
 
 	folders = set()
 	items = []
-	for kind, paths in (('ClCompile', p['sources']), ('ClInclude', p['headers'])):
+	for kind, paths in (('ClCompile', p['sources']), ('ClInclude', p['headers']),
+	                    ('ResourceCompile', p.get('resources') or [])):
 		for s in paths:
 			f = folder_of(s)
 			parts = f.split('\\')
