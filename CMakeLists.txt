@@ -271,6 +271,8 @@ if(CHDMODERN_BUILD_TOOLS)
 	add_executable(chdm-extract tools/chdm-extract.c)
 	target_link_libraries(chdm-extract PRIVATE chdmodern)
 	set_target_properties(chdm-extract PROPERTIES LINKER_LANGUAGE CXX)
+	# the CD path writes with stdio; allow output over 2 GiB on 32-bit POSIX
+	target_compile_definitions(chdm-extract PRIVATE $<$<NOT:$<C_COMPILER_ID:MSVC>>:_FILE_OFFSET_BITS=64>)
 endif()
 
 if(CHDMODERN_BUILD_TESTS)

@@ -47,6 +47,44 @@
 #  include <unistd.h>
 #endif
 
+// Large files on 32-bit Linux and Android.  There off_t is 32 bits unless the
+// whole program is built with _FILE_OFFSET_BITS=64, which a host project (and
+// Android's NDK before API 24) usually isn't.  With a 32-bit off_t, open() and
+// fstat() fail with EOVERFLOW on files of 2 GiB or more, and pread()/pwrite()
+// offsets past 2 GiB wrap around.  So use the explicit 64-bit variants there
+// (glibc and bionic both provide them); everywhere else off_t is 64-bit
+// already (64-bit targets, macOS/iOS, the BSDs, musl).
+#if !defined(_WIN32) && (defined(__GLIBC__) || defined(__BIONIC__)) && !defined(__LP64__) && !(defined(_FILE_OFFSET_BITS) && _FILE_OFFSET_BITS == 64)
+#  define CHDM_LFS64 1
+#endif
+
+#if !defined(_WIN32)
+namespace {
+
+#if defined(CHDM_LFS64)
+using file_off_t = off64_t;
+inline ssize_t file_pread(int fd, void *buf, std::size_t n, std::uint64_t off) noexcept { return ::pread64(fd, buf, n, file_off_t(off)); }
+inline ssize_t file_pwrite(int fd, void const *buf, std::size_t n, std::uint64_t off) noexcept { return ::pwrite64(fd, buf, n, file_off_t(off)); }
+inline int file_truncate(int fd, std::uint64_t off) noexcept { return ::ftruncate64(fd, file_off_t(off)); }
+inline file_off_t file_seek_end(int fd) noexcept { return ::lseek64(fd, 0, SEEK_END); }
+#  if defined(O_LARGEFILE)
+constexpr int FILE_OPEN_FLAGS = O_LARGEFILE;
+#  else
+constexpr int FILE_OPEN_FLAGS = 0;
+#  endif
+#else
+using file_off_t = off_t;
+static_assert(sizeof(off_t) >= 8, "64-bit file offsets are required; build with -D_FILE_OFFSET_BITS=64");
+inline ssize_t file_pread(int fd, void *buf, std::size_t n, std::uint64_t off) noexcept { return ::pread(fd, buf, n, file_off_t(off)); }
+inline ssize_t file_pwrite(int fd, void const *buf, std::size_t n, std::uint64_t off) noexcept { return ::pwrite(fd, buf, n, file_off_t(off)); }
+inline int file_truncate(int fd, std::uint64_t off) noexcept { return ::ftruncate(fd, file_off_t(off)); }
+inline file_off_t file_seek_end(int fd) noexcept { return ::lseek(fd, 0, SEEK_END); }
+constexpr int FILE_OPEN_FLAGS = 0;
+#endif
+
+} // anonymous namespace
+#endif
+
 #if !defined(CHDMODERN_NO_THREADS)
 #  include <thread>
 #endif
@@ -295,7 +333,7 @@ public:
 		auto *dst = static_cast<std::uint8_t *>(buffer);
 		while (total < length)
 		{
-			ssize_t const r = ::pread(m_fd, dst + total, length - total, off_t(offset + total));
+			ssize_t const r = file_pread(m_fd, dst + total, std::min<std::uint32_t>(length - total, MAX_IO_CHUNK), offset + total);
 			if (r < 0)
 			{
 				if (errno == EINTR)
@@ -316,13 +354,15 @@ public:
 		auto const *src = static_cast<std::uint8_t const *>(buffer);
 		while (total < length)
 		{
-			ssize_t const r = ::pwrite(m_fd, src + total, length - total, off_t(offset + total));
+			ssize_t const r = file_pwrite(m_fd, src + total, std::min<std::uint32_t>(length - total, MAX_IO_CHUNK), offset + total);
 			if (r < 0)
 			{
 				if (errno == EINTR)
 					continue;
 				return std::error_condition(errno, std::generic_category());
 			}
+			if (r == 0)
+				return std::errc::io_error; // no progress; don't spin forever
 			total += std::uint32_t(r);
 		}
 		actual = total;
@@ -331,7 +371,7 @@ public:
 
 	std::error_condition truncate(std::uint64_t offset) noexcept override
 	{
-		if (::ftruncate(m_fd, off_t(offset)) < 0)
+		if (file_truncate(m_fd, offset) < 0)
 			return std::error_condition(errno, std::generic_category());
 		return std::error_condition();
 	}
@@ -343,6 +383,9 @@ public:
 	}
 
 private:
+	// keeps each call below SSIZE_MAX on 32-bit targets
+	static constexpr std::uint32_t MAX_IO_CHUNK = 0x40000000;
+
 	int m_fd;
 };
 
@@ -438,7 +481,7 @@ std::error_condition osd_file::open(std::string const &path, std::uint32_t openf
 		flags |= O_CLOEXEC;
 #endif
 
-		int fd = ::open(path.c_str(), flags, 0666);
+		int fd = ::open(path.c_str(), flags | FILE_OPEN_FLAGS, 0666);
 		if (fd < 0 && errno == ENOENT && (openflags & OPEN_FLAG_CREATE) && (openflags & OPEN_FLAG_CREATE_PATHS))
 		{
 			auto const sep = path.find_last_of('/');
@@ -447,21 +490,24 @@ std::error_condition osd_file::open(std::string const &path, std::uint32_t openf
 				std::error_condition const err = create_path_recursive(path.substr(0, sep));
 				if (err)
 					return err;
-				fd = ::open(path.c_str(), flags, 0666);
+				fd = ::open(path.c_str(), flags | FILE_OPEN_FLAGS, 0666);
 			}
 		}
 		if (fd < 0)
 			return std::error_condition(errno, std::generic_category());
 
-		struct stat st;
-		if (::fstat(fd, &st) < 0)
+		// lseek rather than fstat: a 32-bit struct stat can't hold the size of a
+		// large file.  Reads and writes use explicit offsets, so the file
+		// pointer's position doesn't matter.
+		file_off_t const size = file_seek_end(fd);
+		if (size < 0)
 		{
 			std::error_condition const err(errno, std::generic_category());
 			::close(fd);
 			return err;
 		}
 		file = std::make_unique<posix_osd_file>(fd);
-		filesize = std::uint64_t(st.st_size);
+		filesize = std::uint64_t(size);
 		return std::error_condition();
 #endif
 	}
