@@ -37,4 +37,3 @@ Bundled third-party code in third_party/ keeps its own license:
   third_party/zstd      BSD 3-Clause            (third_party/zstd/LICENSE)
   third_party/lzma      Public Domain           (LZMA SDK by Igor Pavlov)
   third_party/flac      BSD-style Xiph.Org      (third_party/flac/COPYING.Xiph)
-  third_party/utf8proc  MIT                     (third_party/utf8proc/LICENSE.md)

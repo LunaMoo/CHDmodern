@@ -139,9 +139,6 @@
     <ProjectReference Include="chdm_flac.vcxproj">
       <Project>{0516074E-3E8C-51DF-96A3-2F8455A2D1EB}</Project>
     </ProjectReference>
-    <ProjectReference Include="chdm_utf8proc.vcxproj">
-      <Project>{77BF6375-6C33-5CC4-93EA-6D714568BC89}</Project>
-    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

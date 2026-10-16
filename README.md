@@ -6,7 +6,7 @@ and everything it needs — extracted from MAME into a standalone library that
 any program can link against.
 
 * **The real MAME code.** `src/mame/` is a verbatim copy of MAME's sources
-  (plus one small, documented fix in `patches/`). Reading *and* writing,
+  (plus a few small, documented changes in `patches/`). Reading *and* writing,
   every codec MAME supports (zlib, zstd, LZMA, Huffman, FLAC, the CD codecs,
   A/V Huffman), CHD versions 3–5, parent/child CHDs, CD-ROM / GD-ROM / DVD /
   hard-disk / laserdisc metadata.
@@ -55,7 +55,7 @@ Two ways, both without installing anything beyond Visual Studio with the
 
 * **Solution** — open `msvc/CHDmodern.sln`. Configurations Debug/Release,
   platforms x86, x64 and ARM64. Output goes to `build/msvc/<Platform>/<Configuration>/`;
-  `CHDm.lib` already contains the bundled zlib/zstd/LZMA/FLAC/utf8proc,
+  `CHDm.lib` already contains the bundled zlib/zstd/LZMA/FLAC,
   so a host links just that one library.
 * **DLL from the solution** — the `chdmodern_dll` project builds
   `CHDm.dll` and its import library `CHDm.lib` into
@@ -172,7 +172,7 @@ src/chdmodern.cpp               C API implementation
 src/osd_portable.cpp            portable replacement for MAME's OSD layer
 src/mame/util, src/mame/osd     MAME sources (imported, do not edit by hand)
 patches/                        local fixes re-applied on every import
-third_party/                    zlib, zstd, LZMA SDK, libFLAC, utf8proc (from MAME's 3rdparty)
+third_party/                    zlib, zstd, LZMA SDK, libFLAC (from MAME's 3rdparty)
 tools/                          sync script, VS project generator, example tools
 msvc/                           Visual Studio solution and projects
 tests/                          self-test

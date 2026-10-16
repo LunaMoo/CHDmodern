@@ -66,11 +66,11 @@ elseif(CHDMODERN_SYSTEM_ZLIB)
 	find_package(ZLIB REQUIRED)
 	set(CHDM_ZLIB ZLIB::ZLIB)
 else()
+	# only the deflate/inflate stream API is used
 	add_library(chdm_zlib STATIC
-		${TP}/zlib/adler32.c ${TP}/zlib/compress.c ${TP}/zlib/crc32.c
-		${TP}/zlib/deflate.c ${TP}/zlib/infback.c ${TP}/zlib/inffast.c
-		${TP}/zlib/inflate.c ${TP}/zlib/inftrees.c ${TP}/zlib/trees.c
-		${TP}/zlib/uncompr.c ${TP}/zlib/zutil.c)
+		${TP}/zlib/adler32.c ${TP}/zlib/crc32.c ${TP}/zlib/deflate.c
+		${TP}/zlib/inffast.c ${TP}/zlib/inflate.c ${TP}/zlib/inftrees.c
+		${TP}/zlib/trees.c ${TP}/zlib/zutil.c)
 	target_include_directories(chdm_zlib PUBLIC $<BUILD_INTERFACE:${TP}/zlib>)
 	target_compile_definitions(chdm_zlib PRIVATE $<$<NOT:$<C_COMPILER_ID:MSVC>>:HAVE_UNISTD_H>)
 	target_compile_options(chdm_zlib PRIVATE ${CHDMODERN_WARN_OFF})
@@ -159,12 +159,6 @@ else()
 	set(CHDM_FLAC chdm_flac)
 endif()
 
-# utf8proc (used by corefile.cpp's text helpers) ----------------------------
-add_library(chdm_utf8proc STATIC ${TP}/utf8proc/utf8proc.c)
-target_include_directories(chdm_utf8proc PUBLIC $<BUILD_INTERFACE:${TP}/utf8proc>)
-target_compile_definitions(chdm_utf8proc PUBLIC UTF8PROC_STATIC)
-target_compile_options(chdm_utf8proc PRIVATE ${CHDMODERN_WARN_OFF})
-
 # ---------------------------------------------------------------------------
 # The library
 # ---------------------------------------------------------------------------
@@ -227,7 +221,7 @@ function(chdmodern_configure target)
 			/wd4334 /wd4389 /wd4456 /wd4457 /wd4458 /wd4459 /wd4701 /wd4702 /wd4996)
 	endif()
 	target_link_libraries(${target}
-		PRIVATE ${CHDM_ZLIB} ${CHDM_ZSTD} ${CHDM_LZMA} ${CHDM_FLAC} chdm_utf8proc
+		PRIVATE ${CHDM_ZLIB} ${CHDM_ZSTD} ${CHDM_LZMA} ${CHDM_FLAC}
 		PUBLIC $<$<NOT:$<BOOL:${CHDMODERN_NO_THREADS}>>:Threads::Threads>)
 endfunction()
 
@@ -252,7 +246,7 @@ chdmodern_configure(chdmodern)
 # A static chdmodern needs its bundled dependencies at final link time.
 # Combine them so consumers only ever see one library.
 if(NOT CHDMODERN_SHARED)
-	foreach(dep chdm_zlib chdm_zstd chdm_lzma chdm_flac chdm_utf8proc)
+	foreach(dep chdm_zlib chdm_zstd chdm_lzma chdm_flac)
 		if(TARGET ${dep})
 			list(APPEND CHDMODERN_BUNDLED ${dep})
 		endif()
