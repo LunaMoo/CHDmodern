@@ -1,0 +1,144 @@
+--- a/src/lib/util/unicode.cpp
++++ b/src/lib/util/unicode.cpp
+@@ -16,73 +16,10 @@
+ #include "strconv.h"
+ #endif
+ 
+-#include <utf8proc.h>
+-
+ #include <codecvt>
+ #include <locale>
+ 
+ 
+-namespace {
+-
+-//-------------------------------------------------
+-//  internal_normalize_unicode - uses utf8proc to
+-//  normalize unicode
+-//-------------------------------------------------
+-
+-std::string internal_normalize_unicode(
+-		char const *s,
+-		size_t length,
+-		unicode_normalization_form normalization_form,
+-		bool fold_case,
+-		bool null_terminated)
+-{
+-	// convert the normalization form
+-	int options;
+-	switch (normalization_form)
+-	{
+-	case unicode_normalization_form::C:
+-		options = UTF8PROC_STABLE | UTF8PROC_COMPOSE;
+-		break;
+-	case unicode_normalization_form::D:
+-		options = UTF8PROC_STABLE | UTF8PROC_DECOMPOSE;
+-		break;
+-	case unicode_normalization_form::KC:
+-		options = UTF8PROC_STABLE | UTF8PROC_COMPOSE | UTF8PROC_COMPAT;
+-		break;
+-	case unicode_normalization_form::KD:
+-		options = UTF8PROC_STABLE | UTF8PROC_DECOMPOSE | UTF8PROC_COMPAT;
+-		break;
+-	default:
+-		throw false;
+-	}
+-
+-	// perform case folding?
+-	if (fold_case)
+-		options |= UTF8PROC_CASEFOLD;
+-
+-	// use NUL terminator to determine length?
+-	if (null_terminated)
+-		options |= UTF8PROC_NULLTERM;
+-
+-	// invoke utf8proc
+-	utf8proc_uint8_t *utf8proc_result(nullptr);
+-	utf8proc_ssize_t const utf8proc_result_length(utf8proc_map(reinterpret_cast<utf8proc_uint8_t const *>(s), length, &utf8proc_result, utf8proc_option_t(options)));
+-
+-	// conver the result
+-	std::string result;
+-	if (utf8proc_result)
+-	{
+-		if (utf8proc_result_length > 0)
+-			result.assign(reinterpret_cast<char const *>(utf8proc_result), utf8proc_result_length);
+-		free(utf8proc_result);
+-	}
+-
+-	return result;
+-}
+-
+-} // anonymous namespace
+-
+-
+ //-------------------------------------------------
+ //  uchar_isvalid - return true if a given
+ //  character is a legitimate unicode character
+@@ -482,50 +419,6 @@ std::string utf8_from_wstring(std::wstring_view string)
+ }
+ 
+ 
+-//-------------------------------------------------
+-//  normalize_unicode - uses utf8proc to normalize
+-//  unicode
+-//-------------------------------------------------
+-
+-std::string normalize_unicode(const char *s, unicode_normalization_form normalization_form, bool fold_case)
+-{
+-	return internal_normalize_unicode(s, 0, normalization_form, fold_case, true);
+-}
+-
+-
+-//-------------------------------------------------
+-//  normalize_unicode - uses utf8proc to normalize
+-//  unicode
+-//-------------------------------------------------
+-
+-std::string normalize_unicode(std::string_view s, unicode_normalization_form normalization_form, bool fold_case)
+-{
+-	return internal_normalize_unicode(s.data(), s.length(), normalization_form, fold_case, false);
+-}
+-
+-
+-//-------------------------------------------------
+-//  uchar_toupper - uses utf8proc to convert to
+-//  upper case
+-//-------------------------------------------------
+-
+-char32_t uchar_toupper(char32_t ch)
+-{
+-	return utf8proc_toupper(ch);
+-}
+-
+-
+-//-------------------------------------------------
+-//  uchar_tolower - uses utf8proc to convert to
+-//  lower case
+-//-------------------------------------------------
+-
+-char32_t uchar_tolower(char32_t ch)
+-{
+-	return utf8proc_tolower(ch);
+-}
+-
+-
+ //-------------------------------------------------
+ //  utf8_previous_char - return a pointer to the
+ //  previous character in a string
+--- a/src/lib/util/unicode.h
++++ b/src/lib/util/unicode.h
+@@ -71,14 +71,6 @@ int utf16f_from_uchar(char16_t *utf16string, size_t count, char32_t uchar);
+ std::wstring wstring_from_utf8(std::string_view utf8string);
+ std::string utf8_from_wstring(std::wstring_view string);
+ 
+-// unicode normalization
+-std::string normalize_unicode(const char *s, unicode_normalization_form normalization_form, bool fold_case = false);
+-std::string normalize_unicode(std::string_view s, unicode_normalization_form normalization_form, bool fold_case = false);
+-
+-// upper and lower case
+-char32_t uchar_toupper(char32_t ch);
+-char32_t uchar_tolower(char32_t ch);
+-
+ // misc UTF-8 helpers
+ const char *utf8_previous_char(const char *utf8string);
+ bool utf8_is_valid_string(const char *utf8string);

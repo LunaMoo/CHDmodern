@@ -15,6 +15,11 @@
 
 #if defined(__aarch64__) || defined(_M_ARM64)
 #define FLAC__CPU_ARM64
+#endif
+
+/* lpc_intrin_neon.c initialises NEON vectors GCC/Clang-style, which MSVC
+   rejects (C2078); MSVC ARM64 builds use the portable C code instead */
+#if (defined(__aarch64__) || defined(_M_ARM64)) && !(defined(_MSC_VER) && !defined(__clang__))
 #define FLAC__HAS_NEONINTRIN 1
 #define FLAC__HAS_A64NEONINTRIN 1
 #else

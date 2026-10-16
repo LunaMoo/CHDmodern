@@ -60,7 +60,7 @@ PROJECTS = {
 	'chdm_zlib': dict(
 		kind='StaticLibrary', lang='c', folder='third_party',
 		sources=files(*[f'third_party/zlib/{f}.c' for f in
-			'adler32 compress crc32 deflate infback inffast inflate inftrees trees uncompr zutil'.split()]),
+			'adler32 crc32 deflate inffast inflate inftrees trees zutil'.split()]),
 		headers=files(('third_party/zlib', {'.h'})),
 		defines=[],
 		includes=['third_party/zlib'],
@@ -97,13 +97,6 @@ PROJECTS = {
 		         'HAVE_STRING_H', 'CPU_IS_BIG_ENDIAN=0', 'CPU_IS_LITTLE_ENDIAN=1', 'WORDS_BIGENDIAN=0'],
 		includes=['third_party/flac/include', 'third_party/flac/src/libFLAC/include'],
 	),
-	'chdm_utf8proc': dict(
-		kind='StaticLibrary', lang='c', folder='third_party',
-		sources=files('third_party/utf8proc/utf8proc.c'),
-		headers=files('third_party/utf8proc/utf8proc.h'),
-		defines=['UTF8PROC_STATIC'],
-		includes=['third_party/utf8proc'],
-	),
 	# Built as CHDm.lib / CHDm.dll, the same name as the CMake build gives it on every platform.
 	'chdmodern': dict(
 		kind='StaticLibrary', lang='cpp', folder=None,
@@ -116,7 +109,7 @@ PROJECTS = {
 		              ('src/mame/osd', {'.h'})),
 		defines=['$(ChdModernDefines)'],
 		includes=['$(ChdModernIncludes)'],
-		deps=['chdm_zlib', 'chdm_zstd', 'chdm_lzma', 'chdm_flac', 'chdm_utf8proc'],
+		deps=['chdm_zlib', 'chdm_zstd', 'chdm_lzma', 'chdm_flac'],
 		merge_deps=True,
 	),
 	# The same library as a DLL exporting only the C API (chdm_*). Output goes
@@ -129,7 +122,7 @@ PROJECTS = {
 		headers=None,
 		defines=['$(ChdModernDefines)', 'CHDMODERN_SHARED', 'CHDMODERN_BUILDING'],
 		includes=['$(ChdModernIncludes)'],
-		deps=['chdm_zlib', 'chdm_zstd', 'chdm_lzma', 'chdm_flac', 'chdm_utf8proc'],
+		deps=['chdm_zlib', 'chdm_zstd', 'chdm_lzma', 'chdm_flac'],
 		extra_link_libs='$(ChdModernDllLinkLibs)',
 	),
 	'chdm-dlltest': dict(

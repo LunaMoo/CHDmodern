@@ -46,9 +46,9 @@ TP="$ROOT/third_party"
 rm -rf "$TP"
 
 copy "$MAME/3rdparty/zlib" "$TP/zlib" LICENSE README \
-	adler32.c compress.c crc32.c crc32.h deflate.c deflate.h gzguts.h \
-	infback.c inffast.c inffast.h inffixed.h inflate.c inflate.h \
-	inftrees.c inftrees.h trees.c trees.h uncompr.c zconf.h zlib.h zutil.c zutil.h
+	adler32.c crc32.c crc32.h deflate.c deflate.h gzguts.h \
+	inffast.c inffast.h inffixed.h inflate.c inflate.h \
+	inftrees.c inftrees.h trees.c trees.h zconf.h zlib.h zutil.c zutil.h
 
 copy "$MAME/3rdparty/zstd" "$TP/zstd" LICENSE README.md
 (cd "$MAME/3rdparty/zstd" && find lib/common lib/compress lib/decompress -type f \( -name '*.c' -o -name '*.h' -o -name '*.S' \)) |
@@ -77,14 +77,13 @@ copy "$MAME/3rdparty/flac" "$TP/flac" \
 	src/libFLAC/stream_encoder_intrin_sse2.c src/libFLAC/stream_encoder_intrin_ssse3.c \
 	src/libFLAC/window.c src/share/win_utf8_io/win_utf8_io.c
 
-copy "$MAME/3rdparty/utf8proc" "$TP/utf8proc" LICENSE.md utf8proc.c utf8proc.h utf8proc_data.c
-
 # --- CHDmodern's small fixes on top of MAME (see patches/README.md) -------
 for p in "$ROOT"/patches/*.patch; do
 	[ -e "$p" ] || continue
 	echo "applying $(basename "$p")"
-	# patches use MAME's paths (src/lib/util/...); map them onto src/mame/util
-	sed -e 's#^\(---\|+++\) [ab]/src/lib/util/#\1 src/mame/util/#' "$p" |
+	# patches use MAME's paths (src/lib/util/..., 3rdparty/...); map them onto ours
+	sed -e 's#^\(---\|+++\) [ab]/src/lib/util/#\1 src/mame/util/#' \
+	    -e 's#^\(---\|+++\) [ab]/3rdparty/#\1 third_party/#' "$p" |
 		patch -d "$ROOT" -p0 --no-backup-if-mismatch --forward
 done
 

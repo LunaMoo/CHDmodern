@@ -41,8 +41,8 @@
     <IntDir>$(ChdModernRoot)build\msvc\obj\$(ProjectName)\$(Platform)\$(Configuration)\</IntDir>
 
     <!-- what code using MAME's headers (chdmodern itself, the self-test) needs -->
-    <ChdModernDefines>ZLIB_CONST;LSB_FIRST;CRLF=3;UTF8PROC_STATIC;FLAC__NO_DLL;Z7_ST;WIN32_LEAN_AND_MEAN;NOMINMAX;_CRT_SECURE_NO_DEPRECATE;_CRT_NONSTDC_NO_DEPRECATE</ChdModernDefines>
-    <ChdModernIncludes>$(ChdModernRoot)include;$(ChdModernRoot)src\mame\util;$(ChdModernRoot)src\mame\osd;$(ChdModernRoot)third_party;$(ChdModernZlibInclude);$(ChdModernZstdInclude);$(ChdModernRoot)third_party\flac\include;$(ChdModernRoot)third_party\utf8proc</ChdModernIncludes>
+    <ChdModernDefines>ZLIB_CONST;LSB_FIRST;CRLF=3;FLAC__NO_DLL;Z7_ST;WIN32_LEAN_AND_MEAN;NOMINMAX;_CRT_SECURE_NO_DEPRECATE;_CRT_NONSTDC_NO_DEPRECATE</ChdModernDefines>
+    <ChdModernIncludes>$(ChdModernRoot)include;$(ChdModernRoot)src\mame\util;$(ChdModernRoot)src\mame\osd;$(ChdModernRoot)third_party;$(ChdModernZlibInclude);$(ChdModernZstdInclude);$(ChdModernRoot)third_party\flac\include</ChdModernIncludes>
 
     <!-- same options MAME uses for its own MSVC builds -->
     <ChdModernCppOptions>/utf-8 /bigobj /Zc:__cplusplus /Zc:preprocessor /permissive-</ChdModernCppOptions>

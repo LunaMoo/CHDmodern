@@ -9,16 +9,10 @@
     <ClCompile Include="..\third_party\zlib\adler32.c">
       <Filter>zlib</Filter>
     </ClCompile>
-    <ClCompile Include="..\third_party\zlib\compress.c">
-      <Filter>zlib</Filter>
-    </ClCompile>
     <ClCompile Include="..\third_party\zlib\crc32.c">
       <Filter>zlib</Filter>
     </ClCompile>
     <ClCompile Include="..\third_party\zlib\deflate.c">
-      <Filter>zlib</Filter>
-    </ClCompile>
-    <ClCompile Include="..\third_party\zlib\infback.c">
       <Filter>zlib</Filter>
     </ClCompile>
     <ClCompile Include="..\third_party\zlib\inffast.c">
@@ -31,9 +25,6 @@
       <Filter>zlib</Filter>
     </ClCompile>
     <ClCompile Include="..\third_party\zlib\trees.c">
-      <Filter>zlib</Filter>
-    </ClCompile>
-    <ClCompile Include="..\third_party\zlib\uncompr.c">
       <Filter>zlib</Filter>
     </ClCompile>
     <ClCompile Include="..\third_party\zlib\zutil.c">

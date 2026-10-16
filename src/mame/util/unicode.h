@@ -71,14 +71,6 @@ int utf16f_from_uchar(char16_t *utf16string, size_t count, char32_t uchar);
 std::wstring wstring_from_utf8(std::string_view utf8string);
 std::string utf8_from_wstring(std::wstring_view string);
 
-// unicode normalization
-std::string normalize_unicode(const char *s, unicode_normalization_form normalization_form, bool fold_case = false);
-std::string normalize_unicode(std::string_view s, unicode_normalization_form normalization_form, bool fold_case = false);
-
-// upper and lower case
-char32_t uchar_toupper(char32_t ch);
-char32_t uchar_tolower(char32_t ch);
-
 // misc UTF-8 helpers
 const char *utf8_previous_char(const char *utf8string);
 bool utf8_is_valid_string(const char *utf8string);

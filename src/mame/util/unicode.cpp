@@ -16,71 +16,8 @@
 #include "strconv.h"
 #endif
 
-#include <utf8proc.h>
-
 #include <codecvt>
 #include <locale>
-
-
-namespace {
-
-//-------------------------------------------------
-//  internal_normalize_unicode - uses utf8proc to
-//  normalize unicode
-//-------------------------------------------------
-
-std::string internal_normalize_unicode(
-		char const *s,
-		size_t length,
-		unicode_normalization_form normalization_form,
-		bool fold_case,
-		bool null_terminated)
-{
-	// convert the normalization form
-	int options;
-	switch (normalization_form)
-	{
-	case unicode_normalization_form::C:
-		options = UTF8PROC_STABLE | UTF8PROC_COMPOSE;
-		break;
-	case unicode_normalization_form::D:
-		options = UTF8PROC_STABLE | UTF8PROC_DECOMPOSE;
-		break;
-	case unicode_normalization_form::KC:
-		options = UTF8PROC_STABLE | UTF8PROC_COMPOSE | UTF8PROC_COMPAT;
-		break;
-	case unicode_normalization_form::KD:
-		options = UTF8PROC_STABLE | UTF8PROC_DECOMPOSE | UTF8PROC_COMPAT;
-		break;
-	default:
-		throw false;
-	}
-
-	// perform case folding?
-	if (fold_case)
-		options |= UTF8PROC_CASEFOLD;
-
-	// use NUL terminator to determine length?
-	if (null_terminated)
-		options |= UTF8PROC_NULLTERM;
-
-	// invoke utf8proc
-	utf8proc_uint8_t *utf8proc_result(nullptr);
-	utf8proc_ssize_t const utf8proc_result_length(utf8proc_map(reinterpret_cast<utf8proc_uint8_t const *>(s), length, &utf8proc_result, utf8proc_option_t(options)));
-
-	// conver the result
-	std::string result;
-	if (utf8proc_result)
-	{
-		if (utf8proc_result_length > 0)
-			result.assign(reinterpret_cast<char const *>(utf8proc_result), utf8proc_result_length);
-		free(utf8proc_result);
-	}
-
-	return result;
-}
-
-} // anonymous namespace
 
 
 //-------------------------------------------------
@@ -479,50 +416,6 @@ std::string utf8_from_wstring(std::wstring_view string)
 	std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
 	return converter.to_bytes(string.data(), string.data() + string.length());
 #endif
-}
-
-
-//-------------------------------------------------
-//  normalize_unicode - uses utf8proc to normalize
-//  unicode
-//-------------------------------------------------
-
-std::string normalize_unicode(const char *s, unicode_normalization_form normalization_form, bool fold_case)
-{
-	return internal_normalize_unicode(s, 0, normalization_form, fold_case, true);
-}
-
-
-//-------------------------------------------------
-//  normalize_unicode - uses utf8proc to normalize
-//  unicode
-//-------------------------------------------------
-
-std::string normalize_unicode(std::string_view s, unicode_normalization_form normalization_form, bool fold_case)
-{
-	return internal_normalize_unicode(s.data(), s.length(), normalization_form, fold_case, false);
-}
-
-
-//-------------------------------------------------
-//  uchar_toupper - uses utf8proc to convert to
-//  upper case
-//-------------------------------------------------
-
-char32_t uchar_toupper(char32_t ch)
-{
-	return utf8proc_toupper(ch);
-}
-
-
-//-------------------------------------------------
-//  uchar_tolower - uses utf8proc to convert to
-//  lower case
-//-------------------------------------------------
-
-char32_t uchar_tolower(char32_t ch)
-{
-	return utf8proc_tolower(ch);
 }
 
 
