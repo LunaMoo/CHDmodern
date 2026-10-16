@@ -50,7 +50,12 @@ jobs:
           -DANDROID_ABI=${{ matrix.abi }} -DANDROID_PLATFORM=android-21
           -DCHDMODERN_SHARED=ON -DCHDMODERN_BUILD_TOOLS=OFF -DCHDMODERN_BUILD_TESTS=OFF
       - name: Build
-        run: cmake --build build --parallel
+        run: |
+          set -o pipefail
+          if ! cmake --build build --parallel 2>&1 | tee build.log; then
+            grep -E "error|fatal|undefined" build.log | sort -u | head -15 | while IFS= read -r l; do echo "::error::$l"; done
+            exit 1
+          fi
       - name: Check exports
         run: |
           test -f build/CHDm.so
@@ -75,7 +80,12 @@ jobs:
           -DCMAKE_SYSTEM_NAME=iOS -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=12.0
           -DCHDMODERN_SHARED=${{ matrix.shared }} -DCHDMODERN_BUILD_TOOLS=OFF -DCHDMODERN_BUILD_TESTS=OFF
       - name: Build
-        run: cmake --build build --parallel
+        run: |
+          set -o pipefail
+          if ! cmake --build build --parallel 2>&1 | tee build.log; then
+            grep -E "error|fatal|undefined" build.log | sort -u | head -15 | while IFS= read -r l; do echo "::error::$l"; done
+            exit 1
+          fi
       - name: Check
         run: |
           f=build/CHDm.$([ "${{ matrix.shared }}" = ON ] && echo dylib || echo a)
