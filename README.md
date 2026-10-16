@@ -60,7 +60,7 @@ CI builds every one of these on each push:
 | Android (NDK, API 21+) | arm64-v8a, armeabi-v7a, x86_64, x86 | `CHDm.so` |
 | iOS (12.0+) | arm64 | `CHDm.dylib` |
 
-The shared library has no version suffix (no `CHDm.so.0.3.0` symlink
+The shared library has no version suffix (no `CHDm.so.0.4.0` symlink
 chain), so the file can be copied anywhere and loaded by that exact name;
 `chdm_version()` reports the version at runtime.
 
@@ -171,8 +171,11 @@ chdm_close(chd);
   choice of hunk size and codecs; `chdm_extract_raw()` writes a CHD's data
   back out, like `chdman extractdvd`. Both report progress through a
   callback that can also cancel, which deletes the partial output.
-* **Version** — `chdm_version()` (`"0.3.0"`) and `chdm_version_number()`
-  (`300`) report the library actually loaded, e.g. to show it in a host's UI
+  `chdm_create_dvd_io()` reads the image through `chdm_io` callbacks and
+  `chdm_extract_raw_io()` writes it through a `chdm_writer`, so a host can
+  keep the ISO in memory (e.g. to repack CHD -> CSO without a temporary file).
+* **Version** — `chdm_version()` (`"0.4.0"`) and `chdm_version_number()`
+  (`400`) report the library actually loaded, e.g. to show it in a host's UI
   when `CHDm.dll` is shipped separately; `CHDMODERN_VERSION_*` give the
   header's. The numbers are defined once, in `chdmodern.h` — CMake and the
   DLL's version resource read them from there.

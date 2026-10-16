@@ -552,6 +552,91 @@ void test_convert(std::string const &dir, std::vector<uint8_t> const &data)
 	std::remove(chd.c_str());
 }
 
+// chdm_create_dvd_io / chdm_extract_raw_io: the same ISO through memory, which must give
+// the same bytes as going through files.
+void test_convert_io(std::string const &dir, std::vector<uint8_t> const &data)
+{
+	std::printf("convert io ... ");
+	std::fflush(stdout);
+	int const before = g_failures;
+
+	std::string const iso = dir + "/selftest_convert_io.iso";
+	std::string const chd_file_path = dir + "/selftest_convert_io_file.chd";
+	std::string const chd_mem_path = dir + "/selftest_convert_io_mem.chd";
+	if (FILE *f = std::fopen(iso.c_str(), "wb"))
+	{
+		CHECK(std::fwrite(data.data(), 1, data.size(), f) == data.size());
+		std::fclose(f);
+	}
+
+	struct source { std::vector<uint8_t> const *data; };
+	source src { &data };
+	chdm_io in {};
+	in.user = &src;
+	in.size = [] (void *user) -> uint64_t { return static_cast<source *>(user)->data->size(); };
+	in.read_at = [] (void *user, uint64_t offset, void *buffer, size_t length) -> size_t
+	{
+		std::vector<uint8_t> const &d = *static_cast<source *>(user)->data;
+		if (offset >= d.size())
+			return 0;
+		size_t const n = size_t(std::min<uint64_t>(length, d.size() - offset));
+		std::memcpy(buffer, d.data() + offset, n);
+		return n;
+	};
+	in.close = [] (void *) { std::abort(); };  // never called by the conversion
+
+	uint32_t const zstd[4] = { CHDM_TAG('z','s','t','d'), 0, 0, 0 };
+	CHECK_OK(chdm_create_dvd(iso.c_str(), chd_file_path.c_str(), 2048, zstd, nullptr, nullptr));
+	CHECK_OK(chdm_create_dvd_io(&in, chd_mem_path.c_str(), 2048, zstd, nullptr, nullptr));
+	CHECK(read_file(chd_file_path) == read_file(chd_mem_path));
+
+	struct sink { std::vector<uint8_t> out; uint64_t expected = 0; bool refuse = false; };
+	chdm_writer w {};
+	sink dst;
+	w.user = &dst;
+	w.begin = [] (void *user, uint64_t total) -> int
+	{
+		sink &s = *static_cast<sink *>(user);
+		if (s.refuse)
+			return 1;
+		s.expected = total;
+		s.out.reserve(size_t(total));
+		return 0;
+	};
+	w.write_at = [] (void *user, uint64_t offset, const void *buffer, size_t length) -> size_t
+	{
+		sink &s = *static_cast<sink *>(user);
+		if (offset != s.out.size())
+			return size_t(-1);
+		auto const *p = static_cast<uint8_t const *>(buffer);
+		s.out.insert(s.out.end(), p, p + length);
+		return length;
+	};
+	double last = -1.0;
+	auto const track = [] (void *user, double p) -> int { *static_cast<double *>(user) = p; return 0; };
+	CHECK_OK(chdm_extract_raw_io(chd_mem_path.c_str(), &w, track, &last));
+	CHECK(last == 1.0);
+	CHECK(dst.expected == data.size());
+	CHECK(dst.out == data);
+
+	// begin can refuse, and cancelling stops it
+	sink refuse;
+	refuse.refuse = true;
+	w.user = &refuse;
+	CHECK(chdm_extract_raw_io(chd_mem_path.c_str(), &w, nullptr, nullptr) == CHDM_ERR_OUT_OF_MEMORY);
+	sink cancelled;
+	w.user = &cancelled;
+	auto const cancel = [] (void *, double) -> int { return 1; };
+	CHECK(chdm_extract_raw_io(chd_mem_path.c_str(), &w, cancel, nullptr) == CHDM_ERR_CANCELLED);
+	CHECK(chdm_create_dvd_io(&in, chd_mem_path.c_str(), 2048, nullptr, cancel, nullptr) == CHDM_ERR_CANCELLED);
+	CHECK(!file_exists(chd_mem_path));
+
+	std::printf(g_failures == before ? "ok\n" : "FAILED\n");
+	std::remove(iso.c_str());
+	std::remove(chd_file_path.c_str());
+	std::remove(chd_mem_path.c_str());
+}
+
 int main(int argc, char *argv[])
 {
 	std::string const dir = (argc > 1) ? argv[1] : ".";
@@ -622,6 +707,7 @@ int main(int argc, char *argv[])
 	test_cd(dir);
 	test_parent(dir, data);
 	test_convert(dir, data);
+	test_convert_io(dir, data);
 
 	// error paths
 	chdm_file *file = nullptr;

@@ -26,17 +26,17 @@
    describe the header compiled against; chdm_version() reports the library
    actually loaded, which can differ when it's a separately shipped DLL. */
 #define CHDMODERN_VERSION_MAJOR 0
-#define CHDMODERN_VERSION_MINOR 3
+#define CHDMODERN_VERSION_MINOR 4
 #define CHDMODERN_VERSION_PATCH 0
 
 #define CHDMODERN_STRINGIFY_(x) #x
 #define CHDMODERN_STRINGIFY(x) CHDMODERN_STRINGIFY_(x)
-/* "0.3.0" */
+/* "0.4.0" */
 #define CHDMODERN_VERSION_STRING \
 	CHDMODERN_STRINGIFY(CHDMODERN_VERSION_MAJOR) "." \
 	CHDMODERN_STRINGIFY(CHDMODERN_VERSION_MINOR) "." \
 	CHDMODERN_STRINGIFY(CHDMODERN_VERSION_PATCH)
-/* 300 for 0.3.0, so versions compare with < and > */
+/* 400 for 0.4.0, so versions compare with < and > */
 #define CHDMODERN_VERSION_NUMBER \
 	(CHDMODERN_VERSION_MAJOR * 10000 + CHDMODERN_VERSION_MINOR * 100 + CHDMODERN_VERSION_PATCH)
 
@@ -326,6 +326,35 @@ CHDM_API int chdm_create_dvd(const char *input_path, const char *output_path, ui
    a usable image.  An existing output file is overwritten.  progress may
    be NULL. */
 CHDM_API int chdm_extract_raw(const char *input_path, const char *output_path,
+		chdm_progress_func progress, void *user);
+
+/* The same two conversions with the image on the caller's side instead of
+   in a file, e.g. to repack a game through memory without a temporary ISO
+   on disk.  Available since 0.4.0. */
+
+/* Like chdm_create_dvd, reading the image through input (size and read_at
+   are required; close is never called, the caller keeps input->user).
+   read_at is called from the compressor's worker thread, and may be called
+   concurrently with the calling thread's progress callback. */
+CHDM_API int chdm_create_dvd_io(const chdm_io *input, const char *output_path, uint32_t hunk_bytes,
+		const uint32_t compression[4], chdm_progress_func progress, void *user);
+
+/* Where chdm_extract_raw_io writes the image.  begin (optional) is called
+   once with the image size before anything is written: return nonzero to
+   fail with CHDM_ERR_OUT_OF_MEMORY (e.g. when that much memory isn't
+   available).  write_at is called in order, from offset 0, and returns the
+   number of bytes written; anything other than length fails with
+   CHDM_ERR_IO. */
+typedef struct chdm_writer
+{
+	void *user;
+	int    (*begin)(void *user, uint64_t total_bytes);
+	size_t (*write_at)(void *user, uint64_t offset, const void *buffer, size_t length);
+} chdm_writer;
+
+/* Like chdm_extract_raw, writing the logical data through output.  On
+   failure or cancellation whatever was written stays with the caller. */
+CHDM_API int chdm_extract_raw_io(const char *input_path, const chdm_writer *output,
 		chdm_progress_func progress, void *user);
 
 #ifdef __cplusplus
