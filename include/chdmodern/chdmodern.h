@@ -26,12 +26,12 @@
    describe the header compiled against; chdm_version() reports the library
    actually loaded, which can differ when it's a separately shipped DLL. */
 #define CHDMODERN_VERSION_MAJOR 0
-#define CHDMODERN_VERSION_MINOR 4
+#define CHDMODERN_VERSION_MINOR 5
 #define CHDMODERN_VERSION_PATCH 0
 
 #define CHDMODERN_STRINGIFY_(x) #x
 #define CHDMODERN_STRINGIFY(x) CHDMODERN_STRINGIFY_(x)
-/* "0.4.0" */
+/* "0.5.0" */
 #define CHDMODERN_VERSION_STRING \
 	CHDMODERN_STRINGIFY(CHDMODERN_VERSION_MAJOR) "." \
 	CHDMODERN_STRINGIFY(CHDMODERN_VERSION_MINOR) "." \
@@ -337,6 +337,27 @@ CHDM_API int chdm_extract_raw(const char *input_path, const char *output_path,
    read_at is called from the compressor's worker thread, and may be called
    concurrently with the calling thread's progress callback. */
 CHDM_API int chdm_create_dvd_io(const chdm_io *input, const char *output_path, uint32_t hunk_bytes,
+		const uint32_t compression[4], chdm_progress_func progress, void *user);
+
+/* Where chdm_create_dvd_to_output writes the CHD, e.g. a growable buffer in
+   memory.  The compressor reads back what it wrote (the header and the
+   hunk map), so read_at and size are needed too.  read_at returns the bytes
+   read (short only at the end) and write_at the bytes written; (size_t)-1
+   or anything short of length from write_at fails with CHDM_ERR_IO.  size
+   returns the current length (the highest offset written so far).  All
+   three are called from the calling thread.  Available since 0.5.0. */
+typedef struct chdm_output
+{
+	void *user;
+	size_t   (*read_at)(void *user, uint64_t offset, void *buffer, size_t length);
+	size_t   (*write_at)(void *user, uint64_t offset, const void *buffer, size_t length);
+	uint64_t (*size)(void *user);
+} chdm_output;
+
+/* Like chdm_create_dvd_io, writing the CHD through output instead of to a
+   file.  On failure or cancellation whatever was written stays with the
+   caller. */
+CHDM_API int chdm_create_dvd_to_output(const chdm_io *input, const chdm_output *output, uint32_t hunk_bytes,
 		const uint32_t compression[4], chdm_progress_func progress, void *user);
 
 /* Where chdm_extract_raw_io writes the image.  begin (optional) is called

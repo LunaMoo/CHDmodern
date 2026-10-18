@@ -253,6 +253,84 @@ private:
 };
 
 
+// A CHD being created through the caller's chdm_output.
+class callback_output final : public util::random_read_write
+{
+public:
+	explicit callback_output(chdm_output const &out) noexcept : m_out(out) { }
+
+	std::error_condition seek(std::int64_t offset, int whence) noexcept override
+	{
+		std::uint64_t base;
+		switch (whence)
+		{
+		case SEEK_SET: base = 0; break;
+		case SEEK_CUR: base = m_pointer; break;
+		case SEEK_END: base = m_out.size(m_out.user); break;
+		default: return std::errc::invalid_argument;
+		}
+		if (offset < 0 && std::uint64_t(-offset) > base)
+			return std::errc::invalid_argument;
+		m_pointer = base + offset;
+		return std::error_condition();
+	}
+	std::error_condition tell(std::uint64_t &result) noexcept override
+	{
+		result = m_pointer;
+		return std::error_condition();
+	}
+	std::error_condition length(std::uint64_t &result) noexcept override
+	{
+		result = m_out.size(m_out.user);
+		return std::error_condition();
+	}
+
+	std::error_condition read_some(void *buffer, std::size_t length, std::size_t &actual) noexcept override
+	{
+		std::error_condition const err = read_some_at(m_pointer, buffer, length, actual);
+		if (!err)
+			m_pointer += actual;
+		return err;
+	}
+	std::error_condition read_some_at(std::uint64_t offset, void *buffer, std::size_t length, std::size_t &actual) noexcept override
+	{
+		std::size_t const r = m_out.read_at(m_out.user, offset, buffer, length);
+		if (r == std::size_t(-1))
+		{
+			actual = 0;
+			return std::errc::io_error;
+		}
+		actual = r;
+		return std::error_condition();
+	}
+
+	std::error_condition finalize() noexcept override { return std::error_condition(); }
+	std::error_condition flush() noexcept override { return std::error_condition(); }
+	std::error_condition write_some(void const *buffer, std::size_t length, std::size_t &actual) noexcept override
+	{
+		std::error_condition const err = write_some_at(m_pointer, buffer, length, actual);
+		if (!err)
+			m_pointer += actual;
+		return err;
+	}
+	std::error_condition write_some_at(std::uint64_t offset, void const *buffer, std::size_t length, std::size_t &actual) noexcept override
+	{
+		std::size_t const w = m_out.write_at(m_out.user, offset, buffer, length);
+		if (w != length)
+		{
+			actual = 0;
+			return std::errc::io_error;
+		}
+		actual = w;
+		return std::error_condition();
+	}
+
+private:
+	chdm_output   m_out;
+	std::uint64_t m_pointer = 0;
+};
+
+
 chdm_kind detect_kind(chd_file const &chd) noexcept
 {
 	if (!chd.check_is_dvd()) return CHDM_KIND_DVD;
@@ -368,9 +446,10 @@ private:
 	std::atomic<bool> m_read_failed { false };
 };
 
-// Compresses length bytes of input into a new DVD CHD at output_path, deleting it on failure.
-int create_dvd(util::random_read_write &input, uint64_t length, const char *output_path, uint32_t hunk_bytes,
-		const uint32_t compression[4], chdm_progress_func progress, void *user)
+// Compresses length bytes of input into a new DVD CHD at output_path (deleted on failure), or
+// through output when output_path is null.
+int create_dvd(util::random_read_write &input, uint64_t length, const char *output_path, util::random_read_write *output,
+		uint32_t hunk_bytes, const uint32_t compression[4], chdm_progress_func progress, void *user)
 {
 	if (length == 0 || (length % 2048) != 0)
 		return set_error(CHDM_ERR_INVALID_DATA, "input size is not a multiple of 2048 bytes");
@@ -391,8 +470,10 @@ int create_dvd(util::random_read_write &input, uint64_t length, const char *outp
 		// default thread stack on Windows (and on most non-main threads elsewhere).
 		auto const compressor = std::make_unique<image_compressor>(input, length);
 		image_compressor &chd = *compressor;
-		std::error_condition err = chd.create(output_path, length, hunk_bytes, 2048, codecs);
-		output_created = true;
+		std::error_condition err = output_path
+				? chd.create(output_path, length, hunk_bytes, 2048, codecs)
+				: chd.create(*output, length, hunk_bytes, 2048, codecs);
+		output_created = output_path != nullptr;
 		if (!err)
 			err = chd.write_metadata(DVD_METADATA_TAG, 0, std::string());
 		if (!err)
@@ -816,7 +897,7 @@ int chdm_create_dvd(const char *input_path, const char *output_path, uint32_t hu
 		err = input->length(length);
 		if (err)
 			return translate(err);
-		return create_dvd(*input, length, output_path, hunk_bytes, compression, progress, user);
+		return create_dvd(*input, length, output_path, nullptr, hunk_bytes, compression, progress, user);
 	}
 	catch (...)
 	{
@@ -837,7 +918,29 @@ int chdm_create_dvd_io(const chdm_io *input, const char *output_path, uint32_t h
 	{
 		// Never takes ownership, so input->close isn't called.
 		callback_reader reader(*input);
-		return create_dvd(reader, input->size(input->user), output_path, hunk_bytes, compression, progress, user);
+		return create_dvd(reader, input->size(input->user), output_path, nullptr, hunk_bytes, compression, progress, user);
+	}
+	catch (...)
+	{
+		return current_exception_error();
+	}
+}
+
+
+int chdm_create_dvd_to_output(const chdm_io *input, const chdm_output *output, uint32_t hunk_bytes,
+		const uint32_t compression[4], chdm_progress_func progress, void *user)
+{
+	CHDM_REQUIRE(input && input->size && input->read_at);
+	CHDM_REQUIRE(output && output->read_at && output->write_at && output->size);
+	if (hunk_bytes == 0)
+		hunk_bytes = CHDM_DVD_HUNK_BYTES_DEFAULT;
+	CHDM_REQUIRE(hunk_bytes % 2048 == 0);
+
+	try
+	{
+		callback_reader reader(*input);
+		callback_output out(*output);
+		return create_dvd(reader, input->size(input->user), nullptr, &out, hunk_bytes, compression, progress, user);
 	}
 	catch (...)
 	{

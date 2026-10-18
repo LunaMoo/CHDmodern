@@ -590,6 +590,35 @@ void test_convert_io(std::string const &dir, std::vector<uint8_t> const &data)
 	CHECK_OK(chdm_create_dvd_io(&in, chd_mem_path.c_str(), 2048, zstd, nullptr, nullptr));
 	CHECK(read_file(chd_file_path) == read_file(chd_mem_path));
 
+	// chdm_create_dvd_to_output: the CHD itself into memory, byte for byte the same file
+	struct chd_buffer { std::vector<uint8_t> bytes; };
+	chd_buffer mem_chd;
+	chdm_output o {};
+	o.user = &mem_chd;
+	o.size = [] (void *user) -> uint64_t { return static_cast<chd_buffer *>(user)->bytes.size(); };
+	o.read_at = [] (void *user, uint64_t offset, void *buffer, size_t length) -> size_t
+	{
+		std::vector<uint8_t> const &b = static_cast<chd_buffer *>(user)->bytes;
+		if (offset >= b.size())
+			return 0;
+		size_t const n = size_t(std::min<uint64_t>(length, b.size() - offset));
+		std::memcpy(buffer, b.data() + offset, n);
+		return n;
+	};
+	o.write_at = [] (void *user, uint64_t offset, const void *buffer, size_t length) -> size_t
+	{
+		std::vector<uint8_t> &b = static_cast<chd_buffer *>(user)->bytes;
+		if (offset + length > b.size())
+			b.resize(size_t(offset + length));
+		std::memcpy(b.data() + offset, buffer, length);
+		return length;
+	};
+	CHECK_OK(chdm_create_dvd_to_output(&in, &o, 2048, zstd, nullptr, nullptr));
+	CHECK(mem_chd.bytes == read_file(chd_file_path));
+	chd_buffer cancelled_chd;
+	o.user = &cancelled_chd;
+	CHECK(chdm_create_dvd_to_output(&in, &o, 2048, zstd, [] (void *, double) -> int { return 1; }, nullptr) == CHDM_ERR_CANCELLED);
+
 	struct sink { std::vector<uint8_t> out; uint64_t expected = 0; bool refuse = false; };
 	chdm_writer w {};
 	sink dst;
