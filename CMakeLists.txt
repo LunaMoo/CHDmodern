@@ -196,7 +196,8 @@ set(CHDMODERN_SOURCES
 	${MAME_UTIL}/vecstream.cpp
 	# CHDmodern
 	src/osd_portable.cpp
-	src/chdmodern.cpp)
+	src/chdmodern.cpp
+	src/cdimage.cpp)
 
 find_package(Threads)
 

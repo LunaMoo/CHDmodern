@@ -20,6 +20,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <memory>
 #include <random>
 #include <string>
@@ -666,6 +667,345 @@ void test_convert_io(std::string const &dir, std::vector<uint8_t> const &data)
 	std::remove(chd_mem_path.c_str());
 }
 
+// ---- CD images (chdm_create_cd / chdm_extract_cd / chdm_verify_cd) ----------------------------
+
+namespace cdimg {
+
+std::mt19937 g_rng(1234);
+
+std::vector<uint8_t> random_bytes(size_t n)
+{
+	std::vector<uint8_t> v(n);
+	for (auto &b : v)
+		b = uint8_t(g_rng() >> 7);
+	return v;
+}
+
+// Raw sectors with a sync, an address and a mode byte (the data after it is noise: nothing checks EDC/ECC).
+std::vector<uint8_t> raw_data_frames(uint32_t count, uint8_t mode, uint32_t lba)
+{
+	std::vector<uint8_t> v = random_bytes(size_t(count) * 2352);
+	for (uint32_t f = 0; f < count; f++)
+	{
+		uint8_t *s = &v[size_t(f) * 2352];
+		std::memset(s, 0xff, 12);
+		s[0] = s[11] = 0;
+		uint32_t const a = lba + f + 150;
+		auto bcd = [](uint32_t x) { return uint8_t(((x / 10) << 4) | (x % 10)); };
+		s[12] = bcd(a / 4500);
+		s[13] = bcd((a / 75) % 60);
+		s[14] = bcd(a % 75);
+		s[15] = mode;
+	}
+	return v;
+}
+
+void put(std::string const &path, std::vector<uint8_t> const &data)
+{
+	FILE *f = std::fopen(path.c_str(), "wb");
+	CHECK(f != nullptr);
+	if (f)
+	{
+		CHECK(data.empty() || std::fwrite(data.data(), 1, data.size(), f) == data.size());
+		std::fclose(f);
+	}
+}
+
+void put(std::string const &path, std::string const &text) { put(path, std::vector<uint8_t>(text.begin(), text.end())); }
+
+std::string get_text(std::string const &path)
+{
+	std::vector<uint8_t> const v = read_file(path);
+	return std::string(v.begin(), v.end());
+}
+
+std::vector<uint8_t> cat(std::initializer_list<std::vector<uint8_t> const *> parts)
+{
+	std::vector<uint8_t> v;
+	for (auto *p : parts)
+		v.insert(v.end(), p->begin(), p->end());
+	return v;
+}
+
+std::string fresh_dir(std::string const &dir, char const *name)
+{
+	std::string const d = dir + "/" + name;
+	std::error_code ec;
+	std::filesystem::remove_all(d, ec);
+	std::filesystem::create_directories(d, ec);
+	return d;
+}
+
+void le16(std::vector<uint8_t> &v, size_t o, uint32_t x) { v[o] = uint8_t(x); v[o + 1] = uint8_t(x >> 8); }
+void le32(std::vector<uint8_t> &v, size_t o, uint32_t x) { le16(v, o, x & 0xffff); le16(v, o + 2, x >> 16); }
+
+} // namespace cdimg
+
+void test_cd_images(std::string const &dir)
+{
+	using namespace cdimg;
+	std::printf("cd images  ... ");
+	std::fflush(stdout);
+	int const before = g_failures;
+	static uint32_t const cd_codecs[4] = { CHD_CODEC_CD_LZMA, CHD_CODEC_CD_ZLIB, CHD_CODEC_CD_FLAC, CHD_CODEC_NONE };
+
+	// --- a Redump-style split cue: data, audio with its pregap in the file, audio with a PREGAP
+	std::vector<uint8_t> const t1 = raw_data_frames(30, 1, 0);
+	std::vector<uint8_t> const t2 = random_bytes(40 * 2352);
+	std::vector<uint8_t> const t3 = random_bytes(23 * 2352);
+	std::string const cue_text =
+		"FILE \"Game (Track 1).bin\" BINARY\n"
+		"  TRACK 01 MODE1/2352\n"
+		"    INDEX 01 00:00:00\n"
+		"FILE \"Game (Track 2).bin\" BINARY\n"
+		"  TRACK 02 AUDIO\n"
+		"    INDEX 00 00:00:00\n"
+		"    INDEX 01 00:00:10\n"
+		"FILE \"Game (Track 3).bin\" BINARY\n"
+		"  TRACK 03 AUDIO\n"
+		"    PREGAP 00:00:05\n"
+		"    INDEX 01 00:00:00\n";
+	std::string const a = fresh_dir(dir, "selftest_cue");
+	put(a + "/Game (Track 1).bin", t1);
+	put(a + "/Game (Track 2).bin", t2);
+	put(a + "/Game (Track 3).bin", t3);
+	put(a + "/Game.cue", cue_text);
+	std::string const chd = a + "/Game.chd";
+
+	chdm_cd_image_info info;
+	CHECK_OK(chdm_cd_inspect((a + "/Game.cue").c_str(), &info));
+	CHECK(info.tracks == 3 && info.data_tracks == 1 && info.audio_tracks == 2 && info.files == 4);
+	CHECK(info.frames == 93 && info.data_bytes == 93u * 2352);
+	CHECK(std::strcmp(info.format, "cue") == 0 && std::strcmp(info.first_data, "MODE1/2352") == 0);
+	CHECK(info.chd_bytes == (32u + 40u + 24u) * 2448u);
+	// a track file on its own is read through the cue sheet that names it
+	CHECK_OK(chdm_cd_inspect((a + "/Game (Track 2).bin").c_str(), &info));
+	CHECK(info.tracks == 3);
+	int nfiles = 0;
+	CHECK_OK(chdm_cd_image_files((a + "/Game.cue").c_str(), [](void *u, const char *) { ++*static_cast<int *>(u); }, &nfiles));
+	CHECK(nfiles == 4);
+
+	double last = -1;
+	auto track = [](void *u, double p) -> int { *static_cast<double *>(u) = p; return 0; };
+	CHECK_OK(chdm_create_cd((a + "/Game.cue").c_str(), chd.c_str(), 0, cd_codecs, track, &last));
+	CHECK(last == 1.0);
+	CHECK_OK(chdm_verify_cd((a + "/Game.cue").c_str(), chd.c_str(), nullptr, nullptr));
+	CHECK_OK(chdm_cd_inspect(chd.c_str(), &info));
+	CHECK(info.tracks == 3 && info.audio_tracks == 2 && std::strcmp(info.format, "chd") == 0);
+
+	// read back through the CD reader: audio comes out as it was in the .bin
+	{
+		chdm_file *file = nullptr;
+		CHECK_OK(chdm_open(chd.c_str(), CHDM_OPEN_READ, nullptr, &file));
+		chdm_info ci;
+		if (file && chdm_get_info(file, &ci) == CHDM_OK)
+			CHECK(ci.kind == CHDM_KIND_CDROM && ci.hunk_bytes == CHDM_CD_HUNK_BYTES_DEFAULT);
+		if (file)
+			chdm_close(file);
+	}
+
+	// split extract gives back the same files and the same cue sheet
+	std::string const out = fresh_dir(dir, "selftest_cue_out");
+	last = -1;
+	CHECK_OK(chdm_extract_cd(chd.c_str(), (out + "/Game.cue").c_str(), 1, track, &last));
+	CHECK(last == 1.0);
+	CHECK(get_text(out + "/Game.cue") == cue_text);
+	CHECK(read_file(out + "/Game (Track 1).bin") == t1);
+	CHECK(read_file(out + "/Game (Track 2).bin") == t2);
+	CHECK(read_file(out + "/Game (Track 3).bin") == t3);
+	CHECK_OK(chdm_verify_cd((out + "/Game.cue").c_str(), chd.c_str(), nullptr, nullptr));
+
+	// one .bin
+	std::string const one = fresh_dir(dir, "selftest_cue_one");
+	CHECK_OK(chdm_extract_cd(chd.c_str(), (one + "/Game.cue").c_str(), 0, nullptr, nullptr));
+	std::vector<uint8_t> const joined = cat({ &t1, &t2, &t3 });
+	CHECK(read_file(one + "/Game.bin") == joined);
+	std::string const one_text = get_text(one + "/Game.cue");
+	CHECK(one_text ==
+		"FILE \"Game.bin\" BINARY\n"
+		"  TRACK 01 MODE1/2352\n"
+		"    INDEX 01 00:00:00\n"
+		"  TRACK 02 AUDIO\n"
+		"    INDEX 00 00:00:30\n"
+		"    INDEX 01 00:00:40\n"
+		"  TRACK 03 AUDIO\n"
+		"    PREGAP 00:00:05\n"
+		"    INDEX 01 00:00:70\n");
+	CHECK_OK(chdm_verify_cd((one + "/Game.cue").c_str(), chd.c_str(), nullptr, nullptr));
+
+	// a renamed image: the cue's FILE names a .bin that isn't there, the one with the cue's name is used
+	std::string const ren = fresh_dir(dir, "selftest_cue_renamed");
+	put(ren + "/Renamed.bin", joined);
+	std::string renamed = one_text;
+	renamed.replace(renamed.find("Game.bin"), 8, "Game (USA).bin");
+	put(ren + "/Renamed.cue", renamed);
+	CHECK_OK(chdm_verify_cd((ren + "/Renamed.cue").c_str(), chd.c_str(), nullptr, nullptr));
+	CHECK(std::filesystem::directory_iterator(ren) != std::filesystem::directory_iterator());
+	{
+		int count = 0;
+		for (auto const &e : std::filesystem::directory_iterator(ren)) { (void)e; count++; }
+		CHECK(count == 2);  // the corrected copy of the cue sheet is gone again
+	}
+
+	// a different image doesn't verify; a cancelled extract leaves nothing
+	std::vector<uint8_t> t3b = t3;
+	t3b[5000] ^= 1;
+	put(out + "/Game (Track 3).bin", t3b);
+	CHECK(chdm_verify_cd((out + "/Game.cue").c_str(), chd.c_str(), nullptr, nullptr) == CHDM_ERR_INVALID_DATA);
+	std::string const can = fresh_dir(dir, "selftest_cue_cancel");
+	CHECK(chdm_extract_cd(chd.c_str(), (can + "/Game.cue").c_str(), 1, [](void *, double) -> int { return 1; }, nullptr) == CHDM_ERR_CANCELLED);
+	CHECK(std::filesystem::is_empty(can));
+	CHECK(chdm_create_cd((a + "/Game.cue").c_str(), (can + "/x.chd").c_str(), 0, nullptr, [](void *, double) -> int { return 1; }, nullptr) == CHDM_ERR_CANCELLED);
+	CHECK(std::filesystem::is_empty(can));
+	CHECK(chdm_create_cd((a + "/Game.cue").c_str(), (can + "/x.chd").c_str(), 4096, nullptr, nullptr, nullptr) == CHDM_ERR_INVALID_ARGUMENT);
+
+	// --- CloneCD: one .img, INDEX 0/1 pregap in the file, a .sub that isn't stored
+	std::string const c = fresh_dir(dir, "selftest_ccd");
+	std::vector<uint8_t> const img = cat({ &t1, &t2, &t3 });
+	put(c + "/Disc.img", img);
+	put(c + "/Disc.sub", random_bytes(93 * 96));
+	put(c + "/Disc.ccd",
+		"[CloneCD]\r\nVersion=3\r\n[Disc]\r\nTocEntries=6\r\nSessions=1\r\nDataTracksScrambled=0\r\n"
+		"[Session 1]\r\nPreGapMode=1\r\nPreGapSubC=0\r\n"
+		"[Entry 0]\r\nSession=1\r\nPoint=0x01\r\nADR=0x01\r\nControl=0x04\r\nPLBA=0\r\n"
+		"[Entry 1]\r\nSession=1\r\nPoint=0x02\r\nADR=0x01\r\nControl=0x00\r\nPLBA=40\r\n"
+		"[Entry 2]\r\nSession=1\r\nPoint=0x03\r\nADR=0x01\r\nControl=0x00\r\nPLBA=70\r\n"
+		"[TRACK 1]\r\nMODE=1\r\nINDEX 1=0\r\n"
+		"[TRACK 2]\r\nMODE=0\r\nINDEX 0=30\r\nINDEX 1=40\r\n"
+		"[TRACK 3]\r\nMODE=0\r\nINDEX 1=70\r\n");
+	CHECK_OK(chdm_cd_inspect((c + "/Disc.ccd").c_str(), &info));
+	CHECK(info.tracks == 3 && info.audio_tracks == 2 && info.files == 3 && info.frames == 93 && std::strcmp(info.format, "ccd") == 0);
+	CHECK_OK(chdm_cd_inspect((c + "/Disc.img").c_str(), &info));  // through the .ccd of the same name
+	CHECK(info.tracks == 3);
+	CHECK_OK(chdm_create_cd((c + "/Disc.img").c_str(), (c + "/Disc.chd").c_str(), 0, nullptr, nullptr, nullptr));
+	CHECK_OK(chdm_verify_cd((c + "/Disc.ccd").c_str(), (c + "/Disc.chd").c_str(), nullptr, nullptr));
+	CHECK_OK(chdm_extract_cd((c + "/Disc.chd").c_str(), (c + "/Back.cue").c_str(), 0, nullptr, nullptr));
+	CHECK(read_file(c + "/Back.bin") == img);
+	CHECK(get_text(c + "/Back.cue") ==
+		"FILE \"Back.bin\" BINARY\n"
+		"  TRACK 01 MODE1/2352\n"
+		"    INDEX 01 00:00:00\n"
+		"  TRACK 02 AUDIO\n"
+		"    INDEX 00 00:00:30\n"
+		"    INDEX 01 00:00:40\n"
+		"  TRACK 03 AUDIO\n"
+		"    INDEX 01 00:00:70\n");
+
+	// --- Alcohol 120%: 2448-byte sectors (subchannel skipped), a gap between the tracks
+	std::string const m = fresh_dir(dir, "selftest_mds");
+	std::vector<uint8_t> mdf;
+	for (uint32_t f = 0; f < 30; f++)
+	{
+		mdf.insert(mdf.end(), t1.begin() + f * 2352, t1.begin() + (f + 1) * 2352);
+		std::vector<uint8_t> const sub = random_bytes(96);
+		mdf.insert(mdf.end(), sub.begin(), sub.end());
+	}
+	for (uint32_t f = 0; f < 40; f++)
+	{
+		mdf.insert(mdf.end(), t2.begin() + f * 2352, t2.begin() + (f + 1) * 2352);
+		std::vector<uint8_t> const sub = random_bytes(96);
+		mdf.insert(mdf.end(), sub.begin(), sub.end());
+	}
+	put(m + "/Alc.mdf", mdf);
+	{
+		size_t const sess = 0x58, tracks = sess + 24, nblocks = 3, extra = tracks + nblocks * 80, footer = extra + 2 * 8, name = footer + 16;
+		std::vector<uint8_t> d(name + 6, 0);
+		std::memcpy(d.data(), "MEDIA DESCRIPTOR", 16);
+		d[0x10] = 1; d[0x11] = 5;
+		le16(d, 0x12, 0);          // CD-ROM
+		le16(d, 0x14, 1);          // sessions
+		le32(d, 0x50, uint32_t(sess));
+		le32(d, sess + 0, uint32_t(-150));
+		le32(d, sess + 4, 30 + 12 + 40);
+		le16(d, sess + 8, 1);
+		d[sess + 10] = uint8_t(nblocks);
+		d[sess + 11] = 1;
+		le16(d, sess + 12, 1);
+		le16(d, sess + 14, 2);
+		le32(d, sess + 20, uint32_t(tracks));
+		// leadout
+		uint8_t *lo = &d[tracks];
+		lo[2] = 0x14; lo[4] = 0xa2;
+		uint32_t const end = 30 + 12 + 40 + 150;
+		lo[9] = uint8_t(end / 4500); lo[10] = uint8_t((end / 75) % 60); lo[11] = uint8_t(end % 75);
+		struct { uint8_t mode, ctl; uint32_t start, len; uint64_t ofs; } const tr[2] = {
+			{ 0xaa, 0x14, 0, 30, 0 },
+			{ 0xa9, 0x10, 42, 40, 30 * 2448 },   // 12 sectors after track 1 that aren't in the file
+		};
+		for (int i = 0; i < 2; i++)
+		{
+			size_t const b = tracks + (i + 1) * 80;
+			d[b + 0] = tr[i].mode; d[b + 1] = 0x08; d[b + 2] = tr[i].ctl; d[b + 4] = uint8_t(i + 1);
+			le32(d, b + 12, uint32_t(extra + i * 8));
+			le16(d, b + 16, 2448);
+			le32(d, b + 36, tr[i].start);
+			le32(d, b + 40, uint32_t(tr[i].ofs));
+			le32(d, b + 48, 1);
+			le32(d, b + 52, uint32_t(footer));
+			le32(d, extra + i * 8 + 0, i == 0 ? 150 : 0);
+			le32(d, extra + i * 8 + 4, tr[i].len);
+		}
+		le32(d, footer, uint32_t(name));
+		std::memcpy(&d[name], "*.mdf", 5);
+		put(m + "/Alc.mds", d);
+	}
+	CHECK_OK(chdm_cd_inspect((m + "/Alc.mdf").c_str(), &info));
+	CHECK(info.tracks == 2 && info.audio_tracks == 1 && info.frames == 70 && info.files == 2 && std::strcmp(info.format, "mds") == 0);
+	CHECK_OK(chdm_create_cd((m + "/Alc.mds").c_str(), (m + "/Alc.chd").c_str(), 0, nullptr, nullptr, nullptr));
+	CHECK_OK(chdm_verify_cd((m + "/Alc.mds").c_str(), (m + "/Alc.chd").c_str(), nullptr, nullptr));
+	CHECK_OK(chdm_extract_cd((m + "/Alc.chd").c_str(), (m + "/Alc.cue").c_str(), 0, nullptr, nullptr));
+	CHECK(read_file(m + "/Alc.bin") == cat({ &t1, &t2 }));
+	CHECK(get_text(m + "/Alc.cue") ==
+		"FILE \"Alc.bin\" BINARY\n"
+		"  TRACK 01 MODE1/2352\n"
+		"    INDEX 01 00:00:00\n"
+		"  TRACK 02 AUDIO\n"
+		"    PREGAP 00:00:12\n"
+		"    INDEX 01 00:00:30\n");
+	CHECK_OK(chdm_verify_cd((m + "/Alc.cue").c_str(), (m + "/Alc.chd").c_str(), nullptr, nullptr));
+
+	// --- bare images: raw 2352, 2048-byte ISO, and a MODE2/2336 cue
+	std::string const b = fresh_dir(dir, "selftest_bare");
+	std::vector<uint8_t> const raw2 = raw_data_frames(50, 2, 0);
+	put(b + "/Raw.bin", raw2);
+	CHECK_OK(chdm_cd_inspect((b + "/Raw.bin").c_str(), &info));
+	CHECK(info.tracks == 1 && std::strcmp(info.first_data, "MODE2/2352") == 0 && std::strcmp(info.format, "bin") == 0);
+	CHECK_OK(chdm_create_cd((b + "/Raw.bin").c_str(), (b + "/Raw.chd").c_str(), 0, nullptr, nullptr, nullptr));
+	CHECK_OK(chdm_extract_cd((b + "/Raw.chd").c_str(), (b + "/RawBack.cue").c_str(), 1, nullptr, nullptr));
+	CHECK(read_file(b + "/RawBack (Track 1).bin") == raw2);
+	CHECK(chdm_verify_cd((b + "/Raw.bin").c_str(), chd.c_str(), nullptr, nullptr) == CHDM_ERR_INVALID_DATA);
+
+	std::vector<uint8_t> const iso = random_bytes(21 * 2048);
+	put(b + "/Plain.iso", iso);
+	CHECK_OK(chdm_cd_inspect((b + "/Plain.iso").c_str(), &info));
+	CHECK(info.tracks == 1 && std::strcmp(info.first_data, "MODE1/2048") == 0);
+	CHECK_OK(chdm_create_cd((b + "/Plain.iso").c_str(), (b + "/Plain.chd").c_str(), 0, nullptr, nullptr, nullptr));
+	CHECK_OK(chdm_verify_cd((b + "/Plain.iso").c_str(), (b + "/Plain.chd").c_str(), nullptr, nullptr));
+	CHECK_OK(chdm_extract_cd((b + "/Plain.chd").c_str(), (b + "/PlainBack.cue").c_str(), 0, nullptr, nullptr));
+	CHECK(read_file(b + "/PlainBack.bin") == iso);
+
+	std::vector<uint8_t> const m2 = random_bytes(17 * 2336);
+	put(b + "/Xa.bin", m2);
+	put(b + "/Xa.cue", "FILE \"Xa.bin\" BINARY\n  TRACK 01 MODE2/2336\n    INDEX 01 00:00:00\n");
+	CHECK_OK(chdm_create_cd((b + "/Xa.cue").c_str(), (b + "/Xa.chd").c_str(), 0, nullptr, nullptr, nullptr));
+	CHECK_OK(chdm_extract_cd((b + "/Xa.chd").c_str(), (b + "/XaBack.cue").c_str(), 0, nullptr, nullptr));
+	CHECK(read_file(b + "/XaBack.bin") == m2);
+	CHECK(get_text(b + "/XaBack.cue") == "FILE \"XaBack.bin\" BINARY\n  TRACK 01 MODE2/2336\n    INDEX 01 00:00:00\n");
+
+	// a DVD CHD isn't a CD
+	put(b + "/Odd.bin", random_bytes(1000));
+	CHECK(chdm_cd_inspect((b + "/Odd.bin").c_str(), &info) == CHDM_ERR_UNSUPPORTED_FORMAT);
+	CHECK(chdm_cd_inspect((b + "/missing.cue").c_str(), &info) == CHDM_ERR_NOT_FOUND);
+
+	std::printf(g_failures == before ? "ok\n" : "FAILED\n");
+	if (!g_keep)
+		for (char const *d : { "selftest_cue", "selftest_cue_out", "selftest_cue_one", "selftest_cue_renamed", "selftest_cue_cancel", "selftest_ccd", "selftest_mds", "selftest_bare" })
+		{
+			std::error_code ec;
+			std::filesystem::remove_all(dir + "/" + d, ec);
+		}
+}
+
 int main(int argc, char *argv[])
 {
 	std::string const dir = (argc > 1) ? argv[1] : ".";
@@ -737,6 +1077,7 @@ int main(int argc, char *argv[])
 	test_parent(dir, data);
 	test_convert(dir, data);
 	test_convert_io(dir, data);
+	test_cd_images(dir);
 
 	// error paths
 	chdm_file *file = nullptr;

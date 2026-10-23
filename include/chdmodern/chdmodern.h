@@ -26,7 +26,7 @@
    describe the header compiled against; chdm_version() reports the library
    actually loaded, which can differ when it's a separately shipped DLL. */
 #define CHDMODERN_VERSION_MAJOR 0
-#define CHDMODERN_VERSION_MINOR 5
+#define CHDMODERN_VERSION_MINOR 6
 #define CHDMODERN_VERSION_PATCH 0
 
 #define CHDMODERN_STRINGIFY_(x) #x
@@ -376,6 +376,81 @@ typedef struct chdm_writer
 /* Like chdm_extract_raw, writing the logical data through output.  On
    failure or cancellation whatever was written stays with the caller. */
 CHDM_API int chdm_extract_raw_io(const char *input_path, const chdm_writer *output,
+		chdm_progress_func progress, void *user);
+
+/* ---------------------------------------------------------------------- */
+/*  CD images                                                             */
+/* ---------------------------------------------------------------------- */
+
+/* Converting CD-ROM images to and from CD CHDs, like "chdman createcd" and
+   "chdman extractcd" (available since 0.6.0).
+
+   CD images these functions read (input_path / image_path):
+     .cue  any number of FILEs, AUDIO tracks, INDEX 00/01, PREGAP/POSTGAP,
+           MODE1/2048, MODE1/2352, MODE2/2336, MODE2/2352 and the Redump
+           GD-ROM variant.  A FILE that doesn't exist falls back to the cue
+           sheet's own name (with the FILE's extension, then .bin / .img).
+     .ccd  CloneCD, with its .img (single session; .sub not stored)
+     .mds  Alcohol 120%, with its .mdf (single session CDs, MDS version 1;
+           subchannel data is skipped, gaps between tracks are generated)
+     .gdi  Dreamcast GD-ROM
+     .nrg  Nero, and cdrdao .toc
+     .bin / .img / .raw  a bare image of 2352-byte sectors (one data track).
+           It is read through the cue sheet that names it, or a .ccd / .mds
+           of the same name, when there is one.
+     .iso  2048-byte (MODE1) sectors, or raw sectors like a bare .bin
+     .chd  a CD or GD-ROM CHD (to re-compress it, or to verify against)
+   Audio tracks are stored big-endian in the CHD, as chdman does. */
+
+/* chdman's default for CDs: 8 frames of 2448 bytes (2352 + 96 subcode). */
+#define CHDM_CD_HUNK_BYTES_DEFAULT (8u * 2448u)
+
+typedef struct chdm_cd_image_info
+{
+	uint32_t tracks;
+	uint32_t data_tracks;
+	uint32_t audio_tracks;
+	uint32_t sessions;
+	uint32_t frames;        /* sectors of track data, pregaps included when stored */
+	uint64_t data_bytes;    /* bytes of sector data that will be read */
+	uint64_t chd_bytes;     /* logical size of the CD CHD this makes */
+	uint32_t files;         /* files the image is made of, the descriptor included */
+	int      gdrom;         /* nonzero for a GD-ROM */
+	char     format[8];     /* "cue", "ccd", "mds", "gdi", "nrg", "toc", "bin", "iso" or "chd" */
+	char     first_data[12];/* type of the first data track ("MODE1/2352", "MODE2/2352", ...), "" if none */
+} chdm_cd_image_info;
+
+/* Reads a CD image's layout without converting it. */
+CHDM_API int chdm_cd_inspect(const char *input_path, chdm_cd_image_info *info);
+
+/* Calls fn once for each file the image is made of (the descriptor first),
+   e.g. to delete them after converting. */
+CHDM_API int chdm_cd_image_files(const char *input_path, void (*fn)(void *user, const char *path), void *user);
+
+/* Compress a CD image into a CD (or GD-ROM) CHD.  hunk_bytes must be a
+   multiple of 2448 (0 means CHDM_CD_HUNK_BYTES_DEFAULT).  compression lists
+   up to four CD codec FourCCs (CHDM_TAG('c','d','l','z'), 'cdzl', 'cdzs',
+   'cdfl'; unused entries 0), or NULL for chdman's default (cdlz, cdzl,
+   cdfl).  An existing output file is overwritten; on failure or
+   cancellation the output is deleted. */
+CHDM_API int chdm_create_cd(const char *input_path, const char *output_path, uint32_t hunk_bytes,
+		const uint32_t compression[4], chdm_progress_func progress, void *user);
+
+/* Extract a CD or GD-ROM CHD to a cue sheet and its bin file(s), like
+   "chdman extractcd".  cue_path is the .cue to write; the bins go next to
+   it, named after it: "Name.bin", or with split_bins one per track,
+   "Name (Track 1).bin" ("Name (Track 01).bin" with 10 tracks or more), as
+   Redump names them (GD-ROMs are always split).  Audio is written
+   little-endian.  Existing files are overwritten; on failure or
+   cancellation everything written is deleted. */
+CHDM_API int chdm_extract_cd(const char *input_path, const char *cue_path, int split_bins,
+		chdm_progress_func progress, void *user);
+
+/* Checks that the CD CHD at chd_path holds exactly the image at image_path
+   (any of the formats above, a cue sheet chdm_extract_cd wrote included):
+   same tracks, every frame the same.  CHDM_ERR_INVALID_DATA, with what
+   differed in chdm_last_error_message(), when it doesn't. */
+CHDM_API int chdm_verify_cd(const char *image_path, const char *chd_path,
 		chdm_progress_func progress, void *user);
 
 #ifdef __cplusplus

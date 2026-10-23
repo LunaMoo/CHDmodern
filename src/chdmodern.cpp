@@ -9,6 +9,7 @@
 ***************************************************************************/
 
 #include "chdmodern/chdmodern.h"
+#include "internal.h"
 
 #include "cdrom.h"
 #include "chd.h"
@@ -561,6 +562,14 @@ bool write_all(util::core_file &file, uint64_t offset, uint8_t const *data, std:
 }
 
 } // anonymous namespace
+
+namespace chdm_internal {
+
+int set_error(int code, std::string message) noexcept { return ::set_error(code, std::move(message)); }
+int translate(std::error_condition const &err) noexcept { return ::translate(err); }
+int current_exception_error() noexcept { return ::current_exception_error(); }
+
+} // namespace chdm_internal
 
 
 //**************************************************************************

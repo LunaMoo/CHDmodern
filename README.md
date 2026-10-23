@@ -177,8 +177,21 @@ chdm_close(chd);
   `chdm_create_dvd_to_output()` writes the CHD itself through a `chdm_output`
   (read, write and size callbacks), e.g. to build it in memory and store it
   in an archive.
-* **Version** — `chdm_version()` (`"0.5.0"`) and `chdm_version_number()`
-  (`500`) report the library actually loaded, e.g. to show it in a host's UI
+* **CD images** — `chdm_create_cd()` makes a CD CHD like `chdman createcd`
+  (8 frames per hunk, cdlz/cdzl/cdfl by default) from a cue sheet (any number
+  of files, AUDIO tracks, INDEX 00/01, PREGAP, MODE2/2336; a FILE line naming
+  a missing file falls back to the cue sheet's own name), a CloneCD `.ccd` +
+  `.img`, an Alcohol 120% `.mds` + `.mdf` (subchannel data skipped, gaps
+  between tracks kept as pregaps), a `.gdi`, `.nrg` or cdrdao `.toc`, a bare
+  raw `.bin`/`.img` or a 2048-byte `.iso`. A bare image is read through the
+  cue sheet that names it, or through a `.ccd`/`.mds` of the same name.
+  `chdm_extract_cd()` writes a CD CHD back as a cue sheet with one `.bin`
+  or one per track (Redump style, `Name (Track N).bin`), like
+  `chdman extractcd`; `chdm_verify_cd()` compares an image with a CHD frame
+  by frame, `chdm_cd_inspect()` describes an image and
+  `chdm_cd_image_files()` lists the files it is made of.
+* **Version** — `chdm_version()` (`"0.6.0"`) and `chdm_version_number()`
+  (`600`) report the library actually loaded, e.g. to show it in a host's UI
   when `CHDm.dll` is shipped separately; `CHDMODERN_VERSION_*` give the
   header's. The numbers are defined once, in `chdmodern.h` — CMake and the
   DLL's version resource read them from there.
