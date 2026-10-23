@@ -1147,7 +1147,9 @@ int chdm_create_cd(const char *input_path, const char *output_path, uint32_t hun
 		created = true;
 		if (!err)
 			err = cdrom_file::write_metadata(&chd, src->toc);
-		if (!err)
+		if (!err && progress && progress(user, 0.0))
+			result = set_error(CHDM_ERR_CANCELLED);  // before any work: small images can finish in one step
+		if (!err && result == CHDM_OK)
 		{
 			chd.compress_begin();
 			double done = 0.0, ratio = 0.0;
