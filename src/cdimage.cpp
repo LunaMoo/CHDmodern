@@ -818,6 +818,11 @@ int load_source(std::string const &path_in, cd_source &src)
 	if (!file_exists(to_path(path_in)))
 		return error_message(CHDM_ERR_NOT_FOUND, path_in + " doesn't exist");
 	std::string path = path_in;
+#ifdef _WIN32
+	// MAME's parsers take the folder up to the last backslash if there is one: "D:\\x/y.cue" would
+	// lose "y.cue"'s own folder.
+	std::replace(path.begin(), path.end(), '/', '\\');
+#endif
 	std::string ext = extension_of(path);
 	if (ext == "bin" || ext == "img" || ext == "raw" || ext == "iso" || ext == "mdf")
 	{
