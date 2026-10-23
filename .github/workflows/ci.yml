@@ -116,10 +116,12 @@ jobs:
         shell: pwsh
         run: |
           $plat = if ('${{ matrix.platform }}' -eq 'x86') { 'Win32' } else { '${{ matrix.platform }}' }
-          & "build\msvc\$plat\Release\chdm-selftest.exe" $env:RUNNER_TEMP
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          & "build\msvc\$plat\Release\dll\chdm-dlltest.exe" tests\data\sample_dvd_zlib.chd
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $out = & "build\msvc\$plat\Release\chdm-selftest.exe" $env:RUNNER_TEMP 2>&1
+          $out
+          if ($LASTEXITCODE -ne 0) { $out | Select-String "FAIL" | Select-Object -First 15 | ForEach-Object { "::error::selftest: $_" }; exit $LASTEXITCODE }
+          $out = & "build\msvc\$plat\Release\dll\chdm-dlltest.exe" tests\data\sample_dvd_zlib.chd 2>&1
+          $out
+          if ($LASTEXITCODE -ne 0) { $out | Select-Object -Last 10 | ForEach-Object { "::error::dlltest: $_" }; exit $LASTEXITCODE }
 
   msvc-projects-up-to-date:
     name: Generated VS projects are current
