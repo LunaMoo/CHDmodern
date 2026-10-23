@@ -75,6 +75,9 @@
     <ClCompile Include="..\src\chdmodern.cpp">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\cdimage.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
     <ClInclude Include="..\include\chdmodern\chdmodern.h">
       <Filter>include\chdmodern</Filter>
     </ClInclude>

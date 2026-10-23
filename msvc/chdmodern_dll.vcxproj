@@ -91,6 +91,7 @@
     <ClCompile Include="..\src\mame\util\vecstream.cpp" />
     <ClCompile Include="..\src\osd_portable.cpp" />
     <ClCompile Include="..\src\chdmodern.cpp" />
+    <ClCompile Include="..\src\cdimage.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="..\src\chdmodern.rc" />

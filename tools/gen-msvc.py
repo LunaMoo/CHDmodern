@@ -104,7 +104,7 @@ PROJECTS = {
 		sources=files(*[UTIL + f + '.cpp' for f in (
 			'avhuff bitmap cdrom chd chdcodec corefile corestr flac hashing huffman ioprocs md5 '
 			'palette path strformat unicode vecstream').split()],
-			'src/osd_portable.cpp', 'src/chdmodern.cpp'),
+			'src/osd_portable.cpp', 'src/chdmodern.cpp', 'src/cdimage.cpp'),
 		headers=files('include/chdmodern/chdmodern.h', ('src/mame/util', {'.h', '.hpp', '.ipp'}),
 		              ('src/mame/osd', {'.h'})),
 		defines=['$(ChdModernDefines)'],

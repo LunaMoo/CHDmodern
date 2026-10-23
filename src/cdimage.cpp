@@ -24,10 +24,10 @@
 #include "strformat.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cctype>
 #include <cstdio>
 #include <cstring>
-#include <filesystem>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -35,13 +35,24 @@
 #include <string>
 #include <vector>
 
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#else
+#include <dirent.h>
+#include <sys/stat.h>
+#endif
+
 using chdm_internal::set_error;
 using chdm_internal::translate;
 using chdm_internal::current_exception_error;
 
 namespace {
-
-namespace fs = std::filesystem;
 
 constexpr uint32_t FRAME_SIZE = cdrom_file::FRAME_SIZE;
 
@@ -49,16 +60,79 @@ constexpr uint32_t FRAME_SIZE = cdrom_file::FRAME_SIZE;
 //  PATHS AND FILES
 //**************************************************************************
 
-fs::path to_path(std::string const &utf8)
+// UTF-8 paths, split by hand: std::filesystem isn't there on every target (iOS before 13).
+#ifdef _WIN32
+constexpr char PATH_SEP = '\\';
+bool is_sep(char c) { return c == '/' || c == '\\'; }
+std::wstring widen(std::string const &s)
 {
-	return fs::path(std::u8string(utf8.begin(), utf8.end()));
+	if (s.empty())
+		return std::wstring();
+	int const n = MultiByteToWideChar(CP_UTF8, 0, s.data(), int(s.size()), nullptr, 0);
+	std::wstring w(size_t(n), L'\0');
+	MultiByteToWideChar(CP_UTF8, 0, s.data(), int(s.size()), &w[0], n);
+	return w;
 }
+std::string narrow(wchar_t const *w)
+{
+	int const n = WideCharToMultiByte(CP_UTF8, 0, w, -1, nullptr, 0, nullptr, nullptr);
+	if (n <= 1)
+		return std::string();
+	std::string s(size_t(n - 1), '\0');
+	WideCharToMultiByte(CP_UTF8, 0, w, -1, &s[0], n, nullptr, nullptr);
+	return s;
+}
+#else
+constexpr char PATH_SEP = '/';
+bool is_sep(char c) { return c == '/'; }
+#endif
 
-std::string to_utf8(fs::path const &p)
+struct path_t
 {
-	std::u8string const s = p.u8string();
-	return std::string(s.begin(), s.end());
-}
+	std::string s;
+	path_t() = default;
+	path_t(std::string v) : s(std::move(v)) { }
+	bool empty() const { return s.empty(); }
+	size_t name_pos() const
+	{
+		size_t i = s.size();
+		while (i > 0 && !is_sep(s[i - 1]))
+			i--;
+		return i;
+	}
+	path_t parent_path() const
+	{
+		size_t i = name_pos();
+		if (i == 0)
+			return path_t();
+		size_t j = i - 1;
+		while (j > 0 && is_sep(s[j - 1]))
+			j--;
+		return path_t(s.substr(0, j == 0 ? 1 : j));
+	}
+	path_t filename() const { return path_t(s.substr(name_pos())); }
+	path_t stem() const
+	{
+		std::string f = s.substr(name_pos());
+		size_t const dot = f.rfind('.');
+		return path_t(dot == std::string::npos || dot == 0 ? f : f.substr(0, dot));
+	}
+	path_t extension() const
+	{
+		std::string f = s.substr(name_pos());
+		size_t const dot = f.rfind('.');
+		return path_t(dot == std::string::npos || dot == 0 ? std::string() : f.substr(dot));
+	}
+	path_t operator/(path_t const &o) const
+	{
+		if (s.empty())
+			return o;
+		return path_t(is_sep(s.back()) ? s + o.s : s + PATH_SEP + o.s);
+	}
+};
+
+path_t to_path(std::string const &utf8) { return path_t(utf8); }
+std::string to_utf8(path_t const &p) { return p.s; }
 
 std::string lower(std::string s)
 {
@@ -75,30 +149,70 @@ std::string extension_of(std::string const &path)
 	return lower(ext);
 }
 
-bool file_exists(fs::path const &p)
+bool file_exists(path_t const &p)
 {
-	std::error_code ec;
-	return fs::is_regular_file(p, ec);
+	if (p.empty())
+		return false;
+#ifdef _WIN32
+	DWORD const a = GetFileAttributesW(widen(p.s).c_str());
+	return a != INVALID_FILE_ATTRIBUTES && !(a & FILE_ATTRIBUTE_DIRECTORY);
+#else
+	struct stat st;
+	return stat(p.s.c_str(), &st) == 0 && S_ISREG(st.st_mode);
+#endif
 }
 
 uint64_t file_size_of(std::string const &path)
 {
-	std::error_code ec;
-	uint64_t const size = fs::file_size(to_path(path), ec);
-	return ec ? 0 : size;
+	osd_file::ptr file;
+	uint64_t size = 0;
+	if (osd_file::open(path, OPEN_FLAG_READ, file, size))
+		return 0;
+	return size;
+}
+
+// The names of the files (not folders) in dir.
+std::vector<std::string> list_files(path_t const &dir)
+{
+	std::vector<std::string> out;
+	std::string const d = dir.empty() ? std::string(".") : dir.s;
+#ifdef _WIN32
+	WIN32_FIND_DATAW fd;
+	HANDLE h = FindFirstFileW(widen(to_utf8(path_t(d) / path_t("*"))).c_str(), &fd);
+	if (h == INVALID_HANDLE_VALUE)
+		return out;
+	do
+	{
+		if (!(fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
+			out.push_back(narrow(fd.cFileName));
+	} while (FindNextFileW(h, &fd));
+	FindClose(h);
+#else
+	if (DIR *dp = opendir(d.c_str()))
+	{
+		while (dirent *e = readdir(dp))
+		{
+			std::string const name = e->d_name;
+			if (name != "." && name != ".." && file_exists(path_t(d) / path_t(name)))
+				out.push_back(name);
+		}
+		closedir(dp);
+	}
+#endif
+	std::sort(out.begin(), out.end());
+	return out;
 }
 
 // A file in dir whose name matches name ignoring case (for cue sheets written on Windows).
-fs::path find_case_insensitive(fs::path const &dir, std::string const &name)
+path_t find_case_insensitive(path_t const &dir, std::string const &name)
 {
 	if (file_exists(dir / to_path(name)))
 		return dir / to_path(name);
-	std::error_code ec;
 	std::string const want = lower(name);
-	for (auto it = fs::directory_iterator(dir.empty() ? fs::path(".") : dir, ec); !ec && it != fs::directory_iterator(); it.increment(ec))
-		if (lower(to_utf8(it->path().filename())) == want && it->is_regular_file(ec))
-			return it->path();
-	return fs::path();
+	for (std::string const &f : list_files(dir))
+		if (lower(f) == want)
+			return dir / path_t(f);
+	return path_t();
 }
 
 bool read_whole_file(std::string const &path, std::vector<uint8_t> &out, uint64_t limit)
@@ -284,8 +398,8 @@ int load_cue(std::string const &path, cd_source &src)
 	std::vector<uint8_t> raw;
 	if (!read_whole_file(path, raw, 1 << 20))
 		return error_message(CHDM_ERR_IO, "can't read " + path);
-	fs::path const cue = to_path(path);
-	fs::path const dir = cue.parent_path();
+	path_t const cue = to_path(path);
+	path_t const dir = cue.parent_path();
 	std::string const stem = to_utf8(cue.stem());
 
 	std::vector<std::string> lines = text_lines(raw);
@@ -298,7 +412,7 @@ int load_cue(std::string const &path, cd_source &src)
 			continue;
 		if (file_exists(dir / to_path(name)))
 			continue;
-		fs::path found = find_case_insensitive(dir, name);
+		path_t found = find_case_insensitive(dir, name);
 		if (found.empty())
 		{
 			std::string ext = to_utf8(to_path(name).extension());
@@ -377,8 +491,8 @@ int load_ccd(std::string const &path, cd_source &src)
 	if (num("disc", "sessions", 1) > 1)
 		return error_message(CHDM_ERR_UNSUPPORTED_FORMAT, "multi-session CloneCD images aren't supported");
 
-	fs::path const ccd = to_path(path);
-	fs::path img = find_case_insensitive(ccd.parent_path(), to_utf8(ccd.stem()) + ".img");
+	path_t const ccd = to_path(path);
+	path_t img = find_case_insensitive(ccd.parent_path(), to_utf8(ccd.stem()) + ".img");
 	if (img.empty())
 		return error_message(CHDM_ERR_NOT_FOUND, to_utf8(ccd.stem()) + ".img is missing next to " + to_utf8(ccd.filename()));
 	std::string const img_path = to_utf8(img);
@@ -466,7 +580,7 @@ int load_mds(std::string const &path, cd_source &src)
 	std::vector<uint8_t> m;
 	if (!read_whole_file(path, m, 16 << 20))
 		return error_message(CHDM_ERR_IO, "can't read " + path);
-	fs::path const mds = to_path(path);
+	path_t const mds = to_path(path);
 	std::string const name = to_utf8(mds.filename());
 	auto bad = [&](char const *what) { return error_message(CHDM_ERR_INVALID_DATA, name + ": " + what); };
 	if (m.size() < 0x58 || std::memcmp(m.data(), "MEDIA DESCRIPTOR", 16) != 0)
@@ -549,7 +663,7 @@ int load_mds(std::string const &path, cd_source &src)
 		std::string file = t.file.empty() ? std::string("*.mdf") : t.file;
 		if (!file.empty() && file[0] == '*')
 			file = to_utf8(mds.stem()) + file.substr(1);
-		fs::path const mdf = find_case_insensitive(mds.parent_path(), file);
+		path_t const mdf = find_case_insensitive(mds.parent_path(), file);
 		if (mdf.empty())
 			return error_message(CHDM_ERR_NOT_FOUND, file + " is missing next to " + name);
 		std::string const mdf_path = to_utf8(mdf);
@@ -622,31 +736,31 @@ int load_mds(std::string const &path, cd_source &src)
 // The cue sheet / CloneCD / Alcohol descriptor a bare image belongs to, if any.
 std::string find_descriptor(std::string const &image)
 {
-	fs::path const p = to_path(image);
-	fs::path const dir = p.parent_path();
+	path_t const p = to_path(image);
+	path_t const dir = p.parent_path();
 	std::string const stem = to_utf8(p.stem());
 	for (char const *ext : { ".cue", ".ccd", ".mds" })
 	{
-		fs::path const d = find_case_insensitive(dir, stem + ext);
+		path_t const d = find_case_insensitive(dir, stem + ext);
 		if (!d.empty())
 			return to_utf8(d);
 	}
 	// A cue sheet with another name that names this file.
 	std::string const want = lower(to_utf8(p.filename()));
-	std::error_code ec;
-	for (auto it = fs::directory_iterator(dir.empty() ? fs::path(".") : dir, ec); !ec && it != fs::directory_iterator(); it.increment(ec))
+	for (std::string const &f : list_files(dir))
 	{
-		if (lower(to_utf8(it->path().extension())) != ".cue" || it->file_size(ec) > (1 << 20))
+		path_t const cand = dir / path_t(f);
+		if (lower(to_utf8(cand.extension())) != ".cue")
 			continue;
 		std::vector<uint8_t> raw;
-		if (!read_whole_file(to_utf8(it->path()), raw, 1 << 20))
+		if (!read_whole_file(to_utf8(cand), raw, 1 << 20))
 			continue;
 		for (std::string const &line : text_lines(raw))
 		{
 			std::string name;
 			size_t b, e;
 			if (cue_file_name(line, name, b, e) && lower(to_utf8(to_path(name).filename())) == want)
-				return to_utf8(it->path());
+				return to_utf8(cand);
 		}
 	}
 	return std::string();
@@ -1091,8 +1205,8 @@ int chdm_extract_cd(const char *input_path, const char *cue_path, int split_bins
 		bool const gdrom = cdrom->is_gdrom();
 		bool const split = split_bins || gdrom;
 
-		fs::path const cue = to_path(cue_path);
-		fs::path const dir = cue.parent_path();
+		path_t const cue = to_path(cue_path);
+		path_t const dir = cue.parent_path();
 		std::string const base = to_utf8(cue.stem());
 		if (base.find('"') != std::string::npos)
 			return set_error(CHDM_ERR_INVALID_ARGUMENT, "the file name must not contain quotation marks");
